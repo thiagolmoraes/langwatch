@@ -12,12 +12,25 @@ import {
 import { useMemo } from "react";
 import type { HighlighterGeneric } from "shiki";
 import { useColorMode } from "~/components/ui/color-mode";
+import { usePublicEnv } from "~/hooks/usePublicEnv";
 
 const HOSTED_GATEWAY_URL = "https://gateway.langwatch.ai/v1";
 const LOCAL_GATEWAY_URL = "http://localhost:5563/v1";
 
-function resolveGatewayBaseUrl(override?: string): string {
+function withV1Suffix(url: string): string {
+  const trimmed = url.replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
+export function resolveGatewayBaseUrl(
+  override?: string,
+  publicGatewayUrl?: string,
+): string {
   if (override) return override;
+  // Self-hosted deployments advertise their gateway via
+  // LW_GATEWAY_PUBLIC_URL — without this, the snippet showed the SaaS
+  // URL and the copy-pasted curl routed to the wrong place.
+  if (publicGatewayUrl) return withV1Suffix(publicGatewayUrl);
   if (typeof window === "undefined") return HOSTED_GATEWAY_URL;
   // Local dev: gateway runs on :5563 alongside the app on :5560. Docker-
   // Compose + helm ingress use the same port. Any other hostname assumes
@@ -85,8 +98,12 @@ export function VirtualKeyUsageSnippet({
   model = "gpt-5-mini",
 }: VirtualKeyUsageSnippetProps) {
   const { colorMode } = useColorMode();
+  const publicEnv = usePublicEnv();
   const credential = secret ?? "$LANGWATCH_VK_SECRET";
-  const resolvedBaseUrl = resolveGatewayBaseUrl(gatewayBaseUrl);
+  const resolvedBaseUrl = resolveGatewayBaseUrl(
+    gatewayBaseUrl,
+    publicEnv.data?.LW_GATEWAY_PUBLIC_URL,
+  );
   const showRetrievalHint = !secret;
 
   const tabItems: TabItem[] = useMemo(() => {

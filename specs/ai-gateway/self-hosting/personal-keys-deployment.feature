@@ -53,6 +53,12 @@ Feature: Self-hosted deployment surfaces personal-keys onboarding cleanly
     And the langwatch-app pod receives the gateway service URL via env
     And the values.yaml comment explains how to override for split-domain installs
 
+  Scenario: Virtual key usage snippets show the self-hosted gateway URL
+    Given the admin has set the public gateway URL for the deployment
+    When a user creates a virtual key and sees the usage example
+    Then the snippet's base URL points at the deployment's own gateway
+    And copy-pasting the snippet reaches the self-hosted gateway, not the hosted SaaS
+
   Scenario: Self-host docs walk admin through the iter-1 flow end to end
     Given the admin lands on docs/ai-gateway/self-hosting/
     When the admin opens the personal-keys-onboarding page

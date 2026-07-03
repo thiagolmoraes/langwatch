@@ -35,6 +35,7 @@ export const publicEnvRouter = publicProcedure
         !!env.LANGWATCH_NLP_SERVICE || !!env.LANGWATCH_NLP_LAMBDA_CONFIG,
       HAS_LANGEVALS_ENDPOINT: !!env.LANGEVALS_ENDPOINT,
       STRIPE_LICENSE_PAYMENT_LINK_URL: env.STRIPE_LICENSE_PAYMENT_LINK_URL,
+      LW_GATEWAY_PUBLIC_URL: env.LW_GATEWAY_PUBLIC_URL,
     };
 
     return publicEnvVars;
