@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/langwatch/langwatch/services/aigateway/domain"
 )
@@ -20,6 +22,7 @@ func modelIDs(models []domain.Model) []string {
 }
 
 // @scenario "GET /v1/models returns aliases + allowed models"
+// @scenario "GET /v1/models does not query endpoints when an allowlist is set"
 // With an allowlist configured, the list is authoritative: aliases plus the
 // allowlist, and no upstream discovery — models outside the allowlist would
 // be blocked at dispatch anyway, so querying endpoints for them is noise.
@@ -48,6 +51,40 @@ func TestListModels_AliasesPlusAllowlist(t *testing.T) {
 
 	assert.ElementsMatch(t, []string{"chat", "gpt-5-mini"}, modelIDs(models))
 	assert.False(t, providerCalled, "allowlist is authoritative; upstream endpoints must not be queried")
+}
+
+// @scenario "GET /v1/models expands wildcard allowlist entries"
+// models_allowed entries are patterns, not model IDs: "claude-haiku-*"
+// listed verbatim puts a literal "claude-haiku-*" in the client's model
+// picker, and dispatch then forwards that string upstream as a model no
+// provider has. The concrete IDs behind the pattern come from discovery,
+// filtered back down to what the allowlist actually permits.
+// Spec: specs/ai-gateway/provider-routing.feature
+func TestListModels_ExpandsWildcardAllowlistEntries(t *testing.T) {
+	application := New(
+		WithLogger(zap.NewNop()),
+		WithProviders(&mockProvider{
+			listFn: func(_ context.Context, _ []domain.Credential) ([]domain.Model, error) {
+				return []domain.Model{
+					{ID: "claude-haiku-4-5-20251001", ProviderID: domain.ProviderAnthropic},
+					{ID: "claude-opus-4-20250514", ProviderID: domain.ProviderAnthropic},
+				}, nil
+			},
+		}),
+	)
+
+	models, err := application.ListModels(context.Background(), &domain.Bundle{
+		Config: domain.BundleConfig{
+			AllowedModels: []string{"gpt-5-mini", "claude-haiku-*"},
+		},
+	})
+	require.NoError(t, err)
+
+	assert.ElementsMatch(t, []string{"gpt-5-mini", "claude-haiku-4-5-20251001"}, modelIDs(models))
+	assert.NotContains(t, modelIDs(models), "claude-haiku-*",
+		"a wildcard pattern is not a model a client can request")
+	assert.NotContains(t, modelIDs(models), "claude-opus-4-20250514",
+		"discovery answers with the endpoint's whole catalog; the allowlist still applies")
 }
 
 // @scenario "GET /v1/models discovers models from self-hosted endpoints"
@@ -99,6 +136,37 @@ func TestListModels_FiltersDeniedModels(t *testing.T) {
 	assert.ElementsMatch(t, []string{"gpt-5-mini"}, modelIDs(models))
 }
 
+// Allowlisted models carry no provider of their own (unlike aliases and
+// discovered models), so an unambiguous single-credential bundle attributes
+// them to that one provider; a bundle with more than one candidate provider
+// reports no provider rather than guessing wrong.
+func TestListModels_AllowlistProviderAttribution(t *testing.T) {
+	application := New(WithLogger(zap.NewNop()), WithProviders(&mockProvider{}))
+
+	t.Run("single credential provider is attributed", func(t *testing.T) {
+		models, err := application.ListModels(context.Background(), &domain.Bundle{
+			Credentials: []domain.Credential{{ID: "cred-1", ProviderID: domain.ProviderOpenAI}},
+			Config:      domain.BundleConfig{AllowedModels: []string{"gpt-5-mini"}},
+		})
+		require.NoError(t, err)
+		require.Len(t, models, 1)
+		assert.Equal(t, domain.ProviderOpenAI, models[0].ProviderID)
+	})
+
+	t.Run("ambiguous multi-provider chain reports no provider", func(t *testing.T) {
+		models, err := application.ListModels(context.Background(), &domain.Bundle{
+			Credentials: []domain.Credential{
+				{ID: "cred-1", ProviderID: domain.ProviderOpenAI},
+				{ID: "cred-2", ProviderID: domain.ProviderAnthropic},
+			},
+			Config: domain.BundleConfig{AllowedModels: []string{"some-model"}},
+		})
+		require.NoError(t, err)
+		require.Len(t, models, 1)
+		assert.Equal(t, domain.ProviderID(""), models[0].ProviderID)
+	})
+}
+
 // Duplicate IDs across aliases and discovery collapse to one entry, and the
 // result is sorted so pagination-less clients get a stable list.
 func TestListModels_DedupesAndSorts(t *testing.T) {
@@ -148,4 +216,32 @@ func TestListModels_FiltersModelsOutsideAllowRules(t *testing.T) {
 
 	assert.ElementsMatch(t, []string{"qwen3-14b"}, modelIDs(models),
 		"gpt-4o is outside the model allow pattern; dispatch would 403 it")
+}
+
+// A typo'd policy pattern is skipped rather than failing the whole list
+// (dispatch-time evaluation remains the enforcement authority), but the
+// skip must be observable — a silently-dropped deny rule means a model
+// stays listed even though the intent was to hide it.
+func TestListModels_InvalidPolicyPatternLogsWarning(t *testing.T) {
+	core, logs := observer.New(zapcore.DebugLevel)
+	application := New(
+		WithLogger(zap.New(core)),
+		WithProviders(&mockProvider{}),
+	)
+
+	models, err := application.ListModels(context.Background(), &domain.Bundle{
+		Config: domain.BundleConfig{
+			AllowedModels: []string{"gpt-5-mini"},
+			PolicyRules: []domain.PolicyRule{
+				{Pattern: "(unterminated", Type: domain.PolicyDeny, Target: domain.PolicyTargetModel},
+			},
+		},
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"gpt-5-mini"}, modelIDs(models),
+		"an invalid pattern must not fail the whole list")
+
+	entries := logs.FilterMessage("model policy rule has invalid pattern, skipping for listing").All()
+	require.Len(t, entries, 1, "the skipped pattern must be logged, not silently dropped")
+	assert.Equal(t, zapcore.WarnLevel, entries[0].Level)
 }

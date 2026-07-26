@@ -50,14 +50,14 @@ func (m *mockRateLimiter) Allow(ctx context.Context, vkID string, limits domain.
 }
 
 type mockBudget struct {
-	precheckFn func(ctx context.Context, bundle *domain.Bundle) (domain.BudgetVerdict, error)
+	precheckFn func(ctx context.Context, bundle *domain.Bundle) (domain.BudgetDecision, error)
 }
 
-func (m *mockBudget) Precheck(ctx context.Context, bundle *domain.Bundle) (domain.BudgetVerdict, error) {
+func (m *mockBudget) Precheck(ctx context.Context, bundle *domain.Bundle) (domain.BudgetDecision, error) {
 	if m.precheckFn != nil {
 		return m.precheckFn(ctx, bundle)
 	}
-	return domain.BudgetAllow, nil
+	return domain.BudgetDecision{Verdict: domain.BudgetAllow}, nil
 }
 
 type mockGuardrails struct {
@@ -198,8 +198,8 @@ func TestHandleChat_BudgetBlocked(t *testing.T) {
 		},
 	}
 	budget := &mockBudget{
-		precheckFn: func(_ context.Context, _ *domain.Bundle) (domain.BudgetVerdict, error) {
-			return domain.BudgetBlock, nil
+		precheckFn: func(_ context.Context, _ *domain.Bundle) (domain.BudgetDecision, error) {
+			return domain.BudgetDecision{Verdict: domain.BudgetBlock}, nil
 		},
 	}
 
@@ -221,8 +221,11 @@ func TestHandleChat_BudgetWarn(t *testing.T) {
 		},
 	}
 	budget := &mockBudget{
-		precheckFn: func(_ context.Context, _ *domain.Bundle) (domain.BudgetVerdict, error) {
-			return domain.BudgetWarn, nil
+		precheckFn: func(_ context.Context, _ *domain.Bundle) (domain.BudgetDecision, error) {
+			return domain.BudgetDecision{
+				Verdict:  domain.BudgetWarn,
+				Warnings: []domain.BudgetWarning{{Scope: "project", PctUsed: 95}},
+			}, nil
 		},
 	}
 
@@ -234,7 +237,7 @@ func TestHandleChat_BudgetWarn(t *testing.T) {
 
 	result, err := application.HandleChat(context.Background(), testBundle(), bytes.NewReader(testBody()), "gpt-4")
 	require.NoError(t, err)
-	assert.Contains(t, result.Meta.BudgetWarnings, "near_limit")
+	assert.Contains(t, result.Meta.BudgetWarnings, "project:95")
 }
 
 func TestHandleChat_GuardrailPreBlocked(t *testing.T) {
@@ -625,6 +628,52 @@ func TestHandleChat_ModelAwareImplicitInfersProvider(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, attempted, 1)
 	assert.Equal(t, domain.ProviderOpenAI, attempted[0])
+}
+
+// A bundle with zero provider credentials (the org never configured a
+// ModelProvider) must fail with the handled no_provider_configured error,
+// not fall through to Bifrost with a zero-value Credential — that surfaces
+// as an opaque "provider is required" 400 to the caller.
+func TestHandleChat_NoProviderConfigured(t *testing.T) {
+	provider := &mockProvider{
+		dispatchFn: func(_ context.Context, _ *domain.Request, _ domain.Credential) (*domain.Response, error) {
+			t.Fatal("provider must not be dialed when the bundle has no credentials")
+			return nil, nil
+		},
+	}
+
+	bundle := testBundle()
+	bundle.Credentials = nil
+
+	application := New(
+		WithProviders(provider),
+		WithLogger(zap.NewNop()),
+	)
+
+	_, err := application.HandleChat(context.Background(), bundle, bytes.NewReader(testBody()), "gpt-4")
+	require.Error(t, err)
+	assert.True(t, herr.IsCode(err, domain.ErrNoProviderConfigured))
+}
+
+func TestHandleChatStream_NoProviderConfigured(t *testing.T) {
+	provider := &mockProvider{
+		streamFn: func(_ context.Context, _ *domain.Request, _ domain.Credential) (domain.StreamIterator, error) {
+			t.Fatal("provider must not be dialed when the bundle has no credentials")
+			return nil, nil
+		},
+	}
+
+	bundle := testBundle()
+	bundle.Credentials = nil
+
+	application := New(
+		WithProviders(provider),
+		WithLogger(zap.NewNop()),
+	)
+
+	_, err := application.HandleChatStream(context.Background(), bundle, bytes.NewReader(testBody()), "gpt-4")
+	require.Error(t, err)
+	assert.True(t, herr.IsCode(err, domain.ErrNoProviderConfigured))
 }
 
 func TestPeekStream(t *testing.T) {

@@ -1,3 +1,4 @@
+import { createLogger } from "@langwatch/observability";
 import type IORedis from "ioredis";
 import type { Cluster } from "ioredis";
 import {
@@ -13,7 +14,6 @@ import {
 import { TieredBlobStore } from "~/server/event-sourcing/queues/groupQueue/tieredBlobStore";
 import { resolveProjectStorageDestination } from "~/server/stored-objects/project-storage-destination";
 import { createStorageRegistry } from "~/server/stored-objects/stored-objects-factory";
-import { createLogger } from "~/utils/logger/server";
 import { normalizeErrorMessage } from "../normalize-error-message";
 import type { ErrorCluster, GroupInfo, QueueInfo } from "../types";
 import type {
@@ -830,7 +830,7 @@ export class QueueRedisRepository implements QueueRepository {
   }
 
   // Tenant pause: encoded as a special "tenant:<id>" entry in the same
-  // paused-jobs SET that DISPATCH_LUA already consults. The Lua dispatcher
+  // paused-jobs SET that DISPATCH_BATCH_LUA already consults. The Lua dispatcher
   // extracts the tenantId from each groupId (everything before the first
   // "/") and checks SISMEMBER for "tenant:<id>". Added post-2026-05-11
   // incident so an operator can halt ALL processing for a runaway tenant

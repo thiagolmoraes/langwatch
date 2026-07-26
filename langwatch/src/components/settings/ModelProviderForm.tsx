@@ -18,6 +18,9 @@ import {
 import { parseZodFieldErrors, type ZodErrorStructure } from "../../utils/zod";
 import { SmallLabel } from "../SmallLabel";
 import { Switch } from "../ui/switch";
+import { toaster } from "../ui/toaster";
+import { useCodexCodingDefaultsAskStore } from "./CodexCodingDefaultsAsk";
+import { CodexSignIn } from "./CodexSignIn";
 import {
   draftFromProvider,
   EMPTY_ADVANCED_DRAFT,
@@ -234,6 +237,21 @@ export const EditModelProviderForm = ({
 
   const isLlmProvider = providerDefinition?.type === "llm";
 
+  // oauth-device providers (codex) credential through the provider's own
+  // sign-in flow: the drawer swaps the API-key fields for it, and Save
+  // (name / scope edits) skips every API-key validation path, since the
+  // sign-in already persisted the credentials server-side. Their model
+  // list comes from the registry catalog, so the custom-models section
+  // is hidden too. (The registry keeps literal entry types via
+  // `satisfies`, so widen to read the optional authFlow: same pattern
+  // as CredentialsSection's optionalKeys read.)
+  const isOAuthDeviceProvider =
+    (
+      providerDefinition as
+        | { authFlow?: "api-key" | "oauth-device" }
+        | undefined
+    )?.authFlow === "oauth-device";
+
   const {
     validate: validateApiKey,
     isValidating: isValidatingApiKey,
@@ -259,9 +277,12 @@ export const EditModelProviderForm = ({
       state.initialKeys,
     );
 
-    // Validate keys according to schema before submitting
+    // Validate keys according to schema before submitting. oauth-device
+    // providers skip this entirely: the user never types credentials
+    // here, so a name/scope-only save must not trip on the token schema.
     if (
       providerDefinition?.keysSchema &&
+      !isOAuthDeviceProvider &&
       (!isUsingEnvVars || hasNonApiKeyChanges)
     ) {
       const keysSchema = z.union([
@@ -290,7 +311,7 @@ export const EditModelProviderForm = ({
     // console, hit a temporary 401, etc.). Safety providers like
     // azure_safety also skip this — their endpoints can't answer the
     // OpenAI-compatible probe at all.
-    if (isLlmProvider && userEnteredNewApiKey) {
+    if (isLlmProvider && !isOAuthDeviceProvider && userEnteredNewApiKey) {
       const isValid = await validateApiKey();
       if (!isValid) return;
     }
@@ -298,6 +319,7 @@ export const EditModelProviderForm = ({
     void actions.submit();
   }, [
     isLlmProvider,
+    isOAuthDeviceProvider,
     isUsingEnvVars,
     providerDefinition,
     state.customKeys,
@@ -367,17 +389,44 @@ export const EditModelProviderForm = ({
           }
         />
 
-        <CredentialsSection
-          state={state}
-          actions={actions}
-          provider={provider}
-          fieldErrors={fieldErrors}
-          setFieldErrors={setFieldErrors}
-          projectId={projectId}
-          organizationId={organizationId}
-          apiKeyValidationError={apiKeyValidationError}
-          onApiKeyValidationClear={clearApiKeyError}
-        />
+        {isOAuthDeviceProvider ? (
+          <CodexSignIn
+            projectId={project?.id ?? ""}
+            scopes={state.scopes}
+            setAsCodingDefaults={false}
+            onConnected={(account) => {
+              // The sign-in poll already persisted the provider row
+              // server-side, so the drawer's Save has nothing left to do:
+              // close it over the refreshed list. The coding-defaults ask
+              // is queued to the page-level host (a dialog mounted in this
+              // drawer would be unmounted right here, mid-question).
+              useCodexCodingDefaultsAskStore.getState().request({
+                projectId: project?.id ?? "",
+                scopes: state.scopes,
+              });
+              toaster.create({
+                title: "Codex connected",
+                description: account.email
+                  ? `Signed in as ${account.email}`
+                  : undefined,
+                type: "success",
+              });
+              closeDrawer();
+            }}
+          />
+        ) : (
+          <CredentialsSection
+            state={state}
+            actions={actions}
+            provider={provider}
+            fieldErrors={fieldErrors}
+            setFieldErrors={setFieldErrors}
+            projectId={projectId}
+            organizationId={organizationId}
+            apiKeyValidationError={apiKeyValidationError}
+            onApiKeyValidationClear={clearApiKeyError}
+          />
+        )}
 
         <ExtraHeadersSection
           state={state}
@@ -385,7 +434,7 @@ export const EditModelProviderForm = ({
           provider={provider}
         />
 
-        {isLlmProvider && (
+        {isLlmProvider && !isOAuthDeviceProvider && (
           <CustomModelInputSection
             state={state}
             actions={actions}

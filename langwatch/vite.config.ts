@@ -13,10 +13,14 @@ import { havenHmrGate } from "./vite/havenHmrGate";
 // The API server (`server.mts`) loads its own copy via `dotenv.config()`
 // the same way; doing it here keeps both processes reading from one
 // source of truth.
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config({ path: path.resolve(__dirname, ".env"), quiet: true });
 // Portless (haven) overlay wins: loaded after .env with override so the
 // resolved app port + api hostname take effect. Absent in non-portless runs.
-dotenv.config({ path: path.resolve(__dirname, ".env.portless"), override: true });
+dotenv.config({
+  path: path.resolve(__dirname, ".env.portless"),
+  override: true,
+  quiet: true,
+});
 
 const FRONTEND_PORT = parseInt(process.env.LANGWATCH_APP_PORT ?? process.env.PORT ?? "5560");
 const API_PORT = FRONTEND_PORT + 1000;
@@ -147,11 +151,12 @@ export default defineConfig(async (): Promise<UserConfig> => {
       "~": path.resolve(__dirname, "./src"),
       "@app": path.resolve(__dirname, "./src/server/app-layer"),
       "@ee": path.resolve(__dirname, "./ee"),
-
-      // Browser stubs for Node.js-only modules
-      "pino-pretty": path.resolve(__dirname, "./src/noop-css.cjs"),
-      "pino": path.resolve(__dirname, "node_modules/pino/browser.js"),
     },
+    // ONE zod instance for the app AND linked workspace packages
+    // (@langwatch/langy): zod v3 instanceof-checks its own classes (e.g.
+    // z.record's key/value overload detection), so a second physical copy
+    // resolved from a package's own node_modules silently mis-parses.
+    dedupe: ["zod"],
   },
   define: {
     // Literal replacements for process.env references in browser code.
@@ -209,7 +214,14 @@ export default defineConfig(async (): Promise<UserConfig> => {
         "**/dist/**",
         "**/.next/**",
         "**/coverage/**",
-        "**/server.log",
+        // Any dev-server tee target (server.log, server-qa.log, ...): the
+        // server appends on every request, so watching one turns each page
+        // load into a full-reload loop.
+        "**/server*.log",
+        // Working files agents keep under .claude/tmp, per the repo
+        // convention. A dev-server log teed there reloads the page on every
+        // request, same trap as above under a different name.
+        "**/.claude/**",
       ],
       // Docker-on-macOS bind mounts don't surface inotify events reliably,
       // so Vite's default fs.watch sits silent on edits made from the host.
@@ -248,6 +260,18 @@ export default defineConfig(async (): Promise<UserConfig> => {
     // production server (start.ts) listens on a single port so this
     // splitting is dev-only.
     proxy: {
+      // The tRPC WS transport enforces a same-origin allowlist (built from
+      // NEXTAUTH_URL) and fail-closes on a missing/mismatched Origin. The
+      // catch-all `/api` proxy below sets `changeOrigin: true`, which rewrites
+      // the WS handshake Origin so the backend sees a null/foreign origin and
+      // rejects every upgrade — silently breaking all WS-backed workbench
+      // state. A dedicated, earlier entry keeps the browser's real Origin.
+      "/api/trpc-ws": {
+        target: API_TARGET,
+        changeOrigin: false,
+        ws: true,
+        secure: false,
+      },
       "/api": {
         target: API_TARGET,
         changeOrigin: true,
@@ -256,7 +280,18 @@ export default defineConfig(async (): Promise<UserConfig> => {
         // No-op when API is on plain HTTP.
         secure: false,
       },
-      "/mcp": {
+      // Exact-match only ("^...$") — a plain "/mcp" prefix also swallows the
+      // /mcp/authorize frontend page route (src/pages/mcp/authorize.tsx),
+      // sending it to the API server, which has no dev-mode page fallback.
+      // server.proxy regexes test against the full req.url (path + query),
+      // so the optional "(?:\?.*)?" is required or a query-bearing request
+      // like "/mcp?sessionId=..." falls through to the frontend instead.
+      "^/mcp(?:\\?.*)?$": {
+        target: API_TARGET,
+        changeOrigin: true,
+        secure: false,
+      },
+      "^/mcp/health(?:\\?.*)?$": {
         target: API_TARGET,
         changeOrigin: true,
         secure: false,

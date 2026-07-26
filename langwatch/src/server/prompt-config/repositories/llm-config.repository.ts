@@ -1,3 +1,4 @@
+import { createLogger } from "@langwatch/observability";
 import type {
   LlmPromptConfig,
   LlmPromptConfigVersion,
@@ -5,10 +6,9 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 import { nanoid } from "nanoid";
-import { DEFAULT_MODEL } from "~/utils/constants";
-import { resolveModelForFeature } from "~/server/modelProviders/resolveModelForFeature";
 import { ModelNotConfiguredError } from "~/server/modelProviders/modelNotConfiguredError";
-import { createLogger } from "../../../utils/logger/server";
+import { resolveModelForFeature } from "~/server/modelProviders/resolveModelForFeature";
+import { DEFAULT_MODEL } from "~/utils/constants";
 import { SchemaVersion } from "../enums";
 import { NotFoundError } from "../errors";
 import {
@@ -44,7 +44,12 @@ export type CreateLlmConfigParams = Omit<
  */
 export interface LlmConfigWithLatestVersion extends LlmPromptConfig {
   latestVersion: LatestConfigVersionSchema & {
-    author?: { name: string } | null;
+    author?: {
+      id: string;
+      name: string | null;
+      email?: string | null;
+      image?: string | null;
+    } | null;
     runtimeParameters: Record<string, unknown>;
   };
   _count?: {

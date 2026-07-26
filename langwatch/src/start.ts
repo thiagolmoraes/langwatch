@@ -1,5 +1,5 @@
 import promBundle from "express-prom-bundle";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, writeSync } from "fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { createSecureServer } from "http2";
 import path from "path";
@@ -66,6 +66,8 @@ async function loadDevHttpsCredentials(
   return { cert: Buffer.from(pems.cert), key: Buffer.from(pems.private) };
 }
 
+import { createLogger } from "@langwatch/observability";
+import { getRequestListener } from "@hono/node-server";
 // Hono — unified API router
 import type { Hono } from "hono";
 import { register } from "prom-client";
@@ -76,7 +78,7 @@ import {
   initializeInProcessApp,
   initializeWebApp,
 } from "./server/app-layer/presets";
-import { buildStorageConnectSrc } from "./server/buildStorageConnectSrc";
+import { buildSecurityHeaders } from "./server/securityHeaders";
 import {
   getWorkerMetricsPort,
   isMetricsAuthorized,
@@ -87,7 +89,6 @@ import { verifyRedisReady } from "./server/redis";
 import { serveStaticOrFallback } from "./server/static-handler";
 import { setupTRPCWebSocket } from "./server/websockets/trpc-ws";
 import { startWorkers, type WorkerHandle } from "./server/workers/startWorkers";
-import { createLogger } from "./utils/logger/server";
 
 const logger = createLogger("langwatch:start");
 
@@ -182,45 +183,18 @@ export const startApp = async (dir = path.dirname(__dirname)) => {
 
   const mcpHandler = createMcpHandler();
   const honoApp = createApiRouter();
+  // The Node→Hono bridge. `getRequestListener` streams request bodies through
+  // (no buffering — the Langy ndjson relay depends on this) and streams the
+  // response back. `overrideGlobalObjects: false`: never patch the process's
+  // global Request/Response for the rest of the app.
+  const apiListener = getRequestListener(honoFetchForNode(honoApp), {
+    overrideGlobalObjects: false,
+  });
 
   // In production, resolve the built client assets directory
   const clientDistDir = dev ? null : path.join(dir, "dist/client");
 
-  // Security headers (migrated from next.config.mjs)
-  const cspHeader = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.posthog.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.googletagmanager.com https://*.pendo.io https://client.crisp.chat https://static.hsappstatic.net https://*.google-analytics.com https://www.google.com https://*.reo.dev",
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.pendo.io https://client.crisp.chat https://*.google.com https://*.reo.dev https://fonts.googleapis.com https://unpkg.com",
-    "img-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://image.crisp.chat https://*.googletagmanager.com https://*.pendo.io https://*.google-analytics.com https://www.google.com https://*.reo.dev",
-    "font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://client.crisp.chat https://www.google.com https://*.reo.dev https://fonts.gstatic.com",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    ...(!dev ? ["upgrade-insecure-requests"] : []),
-    "worker-src 'self' blob:",
-    // ADR-032: allow the browser's presigned PUT to object storage (derived
-    // from the same env the S3 client uses) — without it the CSP blocks the
-    // upload before it leaves the page and the drawer silently falls back.
-    `connect-src 'self' ${buildStorageConnectSrc({
-      S3_ENDPOINT: process.env.S3_ENDPOINT,
-      S3_REGION: process.env.S3_REGION,
-      S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
-      AWS_REGION: process.env.AWS_REGION,
-      AZURE_BLOB_ENDPOINT: process.env.AZURE_BLOB_ENDPOINT,
-    }).join(
-      " ",
-    )} https://*.posthog.com https://*.pendo.io wss://*.pendo.io wss://client.relay.crisp.chat https://client.crisp.chat https://*.googletagmanager.com https://analytics.google.com https://stats.g.doubleclick.net https://*.google-analytics.com https://www.google.com https://*.reo.dev`,
-    "frame-src 'self' https://*.posthog.com https://*.pendo.io https://www.youtube.com https://get.langwatch.ai https://*.googletagmanager.com https://www.google.com https://*.reo.dev",
-  ].join("; ");
-
-  const securityHeaders: Record<string, string> = {
-    "Referrer-Policy": "no-referrer",
-    "X-Content-Type-Options": "nosniff",
-    // CSP only in production — dev needs inline scripts for Vite HMR
-    ...(!dev ? { "Content-Security-Policy": cspHeader } : {}),
-    ...(!dev ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
-  };
+  const securityHeaders = buildSecurityHeaders({ dev });
 
   // Optional HTTPS + HTTP/2 path for local dev. Set
   // `LANGWATCH_DEV_HTTP2=1` and a self-signed cert is auto-generated on
@@ -290,12 +264,7 @@ export const startApp = async (dir = path.dirname(__dirname)) => {
 
       // ---- API Routes (all go through Hono) ----
       if (pathname.startsWith("/api/")) {
-        const handled = await routeThroughHono(honoApp, req, res, hostname, port);
-        if (handled) return;
-
-        res.statusCode = 404;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: "Not Found" }));
+        await apiListener(req, res);
         return;
       }
 
@@ -337,6 +306,15 @@ export const startApp = async (dir = path.dirname(__dirname)) => {
   const wsHandle = setupTRPCWebSocket(server as ReturnType<typeof createServer>);
 
   server.once("error", (err) => {
+    // Write synchronously to stderr BEFORE the structured log: pino's
+    // transports are async worker threads that never flush past the
+    // process.exit(1) below, so without this a bind failure (e.g.
+    // EADDRINUSE when two dev processes race for the same port) is an
+    // exit(1) with zero output anywhere — stdout, Loki, or otherwise.
+    writeSync(
+      2,
+      `[langwatch:start] server error, exiting: ${err.stack ?? String(err)}\n`,
+    );
     logger.error({ error: err }, "error occurred on server");
     process.exit(1);
   });
@@ -449,98 +427,77 @@ export const startApp = async (dir = path.dirname(__dirname)) => {
   }
 };
 
-// Exported for the langwatch#5219 regression test, which drives the
-// null-body branch directly to prove it never writes a 0-byte body.
-export async function routeThroughHono(
-  honoApp: Hono,
-  req: IncomingMessage,
-  res: ServerResponse,
-  hostname: string,
-  port: number
-): Promise<boolean> {
-  const body =
-    req.method !== "GET" && req.method !== "HEAD"
-      ? await readBody(req)
-      : undefined;
+/**
+ * The Hono app's fetch, adjusted for the Node server entry. This is the ONLY
+ * bridge logic we own — the Node↔fetch conversion itself is
+ * `@hono/node-server`'s `getRequestListener`, which passes request bodies
+ * through as live streams (`Readable.toWeb`) instead of buffering them. That
+ * property is load-bearing: the Langy frame relay
+ * (`POST /api/internal/langy/relay/frames`) is a long-lived ndjson connection
+ * whose route reads line by line while the turn runs; the previous hand-rolled
+ * bridge `await`ed the ENTIRE body before Hono ran, so every frame of a turn
+ * arrived in one burst after the turn ended.
+ *
+ * Two response adjustments survive from the old bridge:
+ *
+ *  1. Hono's default not-found sentinel ("404 Not Found" text) becomes the
+ *     uniform JSON 404 the /api surface has always returned. A route's own
+ *     404 (different body) passes through untouched.
+ *  2. langwatch#5219: a null-body response on a status that SHOULD carry a
+ *     body must never reach the wire as 0 bytes — a tRPC client then throws
+ *     `Unexpected end of JSON input` on `response.json()`. It becomes a
+ *     parseable JSON error instead. 204/205/304 and HEAD legitimately carry
+ *     no body and are left alone (a 304 revision-poll or 204 long-poll no-diff
+ *     must stay empty).
+ *
+ * Forwards every argument `getRequestListener` passes to `honoApp.fetch` —
+ * notably the second (`{ incoming, outgoing }`, Hono's `env`) — rather than
+ * declaring only `request`. Node's calling convention silently drops extra
+ * arguments a function doesn't declare, so a one-parameter wrapper here means
+ * `c.env` is `undefined` in every route handler despite `getRequestListener`
+ * always supplying it; that in turn makes `@hono/node-server/conninfo`'s
+ * `getConnInfo(c)` throw for every request in production (it reads
+ * `c.env.incoming.socket`). No existing handler reads `c.env` today, so this
+ * is additive — it only starts mattering for code that begins relying on it
+ * (see `~/utils/getClientIp.ts`'s `getConnInfo` fallback).
+ *
+ * Exported for the langwatch#5219 + streaming-bridge regression tests.
+ */
+export function honoFetchForNode(
+  honoApp: Pick<Hono, "fetch">,
+): (...args: Parameters<Hono["fetch"]>) => Promise<Response> {
+  return async (request, ...rest) => {
+    const response = await honoApp.fetch(request, ...rest);
 
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (value === undefined) continue;
-    if (Array.isArray(value)) {
-      for (const v of value) headers.append(key, v);
-    } else {
-      headers.set(key, value);
-    }
-  }
-
-  const honoReq = new Request(`http://${hostname}:${port}${req.url}`, {
-    method: req.method,
-    headers,
-    body: body as BodyInit | undefined,
-    // @ts-ignore - duplex needed for streaming bodies
-    duplex: "half",
-  });
-
-  const honoRes = await honoApp.fetch(honoReq);
-
-  if (honoRes.status === 404) {
-    const text = await honoRes.text();
-    if (text === "404 Not Found") return false;
-    res.statusCode = 404;
-    honoRes.headers.forEach((v, k) => res.setHeader(k, v));
-    res.end(text);
-    return true;
-  }
-
-  res.statusCode = honoRes.status;
-  honoRes.headers.forEach((v, k) => res.setHeader(k, v));
-
-  if (honoRes.body) {
-    const reader = honoRes.body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
-    }
-    res.end();
-  } else if (
-    ![204, 205, 304].includes(honoRes.status) &&
-    req.method !== "HEAD"
-  ) {
-    // Null-body responses on a status that SHOULD carry a body (e.g. an error
-    // that slipped past a handler's own serialization) would otherwise
-    // `res.end("")` — a 0-byte body. A tRPC client then throws `Unexpected end
-    // of JSON input` on `response.json()` (langwatch#5219). Never emit an empty
-    // body here: fall back to a parseable JSON error so the client gets
-    // something it can decode.
-    const text = await honoRes.text();
-    if (text.length > 0) {
-      res.end(text);
-    } else {
-      if (!res.getHeader("Content-Type")) {
-        res.setHeader("Content-Type", "application/json");
+    if (response.status === 404) {
+      const text = await response.clone().text();
+      if (text === "404 Not Found") {
+        return new Response(JSON.stringify({ error: "Not Found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
       }
-      res.end(
+      return response;
+    }
+
+    if (
+      !response.body &&
+      ![204, 205, 304].includes(response.status) &&
+      request.method !== "HEAD"
+    ) {
+      const headers = new Headers(response.headers);
+      if (!headers.get("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+      return new Response(
         JSON.stringify({
           error: "Internal server error",
           message: "The server returned an empty response.",
         }),
+        { status: response.status, headers },
       );
     }
-  } else {
-    // 204/205/304 and HEAD legitimately carry no body — write nothing. Injecting
-    // a JSON error here would corrupt valid no-content paths (e.g. a 304
-    // revision-poll or a 204 long-poll no-diff).
-    res.end();
-  }
-  return true;
-}
 
-function readBody(req: IncomingMessage): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
-    req.on("error", reject);
-  });
+    return response;
+  };
 }

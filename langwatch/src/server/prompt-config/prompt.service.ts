@@ -1,3 +1,4 @@
+import { createLogger } from "@langwatch/observability";
 import type {
   LlmPromptConfigVersion,
   Prisma,
@@ -5,7 +6,6 @@ import type {
   PromptScope,
 } from "@prisma/client";
 import type { z } from "zod";
-import { createLogger } from "~/utils/logger";
 import {
   deriveResponseFormatFromOutputs,
   handleSchema,
@@ -14,6 +14,7 @@ import {
   type outputsSchema,
   type promptingTechniqueSchema,
 } from "~/prompts/schemas/field-schemas";
+import { describeLocalFileUpdate } from "./describe-local-file-update";
 import { SchemaVersion } from "./enums";
 import {
   HandleGenerationError,
@@ -22,8 +23,8 @@ import {
 } from "./errors";
 import { toHandleSlug } from "./handle-slug";
 import { hoistSystemMessage } from "./hoist-system-message";
+import { mergeAutoDetectedInputs } from "./mergeAutoDetectedInputs";
 import { PromptVersionService } from "./prompt-version.service";
-import { TagValidationError } from "./repositories/llm-config-tag.repository";
 import { normalizeReasoningFromProviderFields } from "./reasoningBoundary";
 import {
   type CreateLlmConfigParams,
@@ -31,9 +32,9 @@ import {
   LlmConfigRepository,
   type LlmConfigWithLatestVersion,
 } from "./repositories";
-import { PromptTagAssignmentRepository } from "./repositories/llm-config-tag.repository";
-import { PromptTagRepository } from "./repositories/prompt-tag.repository";
+import { PromptTagAssignmentRepository, TagValidationError } from "./repositories/llm-config-tag.repository";
 import {
+  diffRuntimeParameters,
   type getLatestConfigVersionSchema,
   LATEST_SCHEMA_VERSION,
   type LatestConfigVersionSchema,
@@ -41,7 +42,7 @@ import {
   parseRuntimeParameters,
   runtimeParametersEqual,
 } from "./repositories/llm-config-version-schema";
-import { mergeAutoDetectedInputs } from "./mergeAutoDetectedInputs";
+import { PromptTagRepository } from "./repositories/prompt-tag.repository";
 import {
   transformCamelToSnake,
   transformSnakeToCamel,
@@ -96,7 +97,9 @@ export type VersionedPrompt = {
   authorId: string | null;
   author?: {
     id: string;
-    name: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
   } | null;
   inputs: LatestConfigVersionSchema["configData"]["inputs"];
   outputs: LatestConfigVersionSchema["configData"]["outputs"];
@@ -1145,12 +1148,19 @@ export class PromptService {
         return { action: "up_to_date", prompt: existingPrompt };
       } else {
         // Content differs - create new version
+        const allDifferences = [
+          ...(comparison.differences ?? []),
+          ...diffRuntimeParameters({
+            localParameters: params.parameters,
+            remoteParameters: existingPrompt.parameters,
+          }),
+        ];
         const updatedPrompt = await this.updatePrompt({
           idOrHandle: existingPrompt.id,
           projectId,
           data: {
             authorId,
-            commitMessage: commitMessage ?? "Updated from local file",
+            commitMessage: commitMessage ?? describeLocalFileUpdate(allDifferences),
             ...this.transformToDbFormat(resolvedConfigData),
             schemaVersion: SchemaVersion.V1_0,
             parameters: params.parameters,
@@ -1312,7 +1322,9 @@ export class PromptService {
       author: config.latestVersion.author
         ? {
             id: config.latestVersion.author.id,
-            name: config.latestVersion.author.name,
+            name: config.latestVersion.author.name ?? null,
+            email: config.latestVersion.author.email ?? null,
+            image: config.latestVersion.author.image ?? null,
           }
         : null,
       updatedAt: config.updatedAt,

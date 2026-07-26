@@ -1,3 +1,5 @@
+import type { ResolvedRetention } from "../../data-retention/retentionPolicy.schema";
+import type { TenantId } from "../domain/tenantId";
 import type { Event } from "../domain/types";
 import type { KillSwitchOptions } from "../pipeline/staticBuilder.types";
 import type { ProjectionStoreContext } from "./projectionStoreContext";
@@ -23,10 +25,7 @@ import type { ProjectionStoreContext } from "./projectionStoreContext";
  * };
  * ```
  */
-export interface MapProjectionDefinition<
-  Record,
-  E extends Event = Event,
-> {
+export interface MapProjectionDefinition<Record, E extends Event = Event> {
   /** Unique name for this projection within the pipeline. */
   name: string;
 
@@ -78,6 +77,13 @@ export interface MapProjectionOptions {
   groupKeyFn?: (event: any) => string;
 
   /**
+   * Maximum same-group events to persist through one `bulkAppend` call.
+   * Requires the store to implement `bulkAppend`; the queue keeps the batch
+   * tenant-scoped because tenant identity is always part of its group key.
+   */
+  coalesceMaxBatch?: number;
+
+  /**
    * Skip events that are DUPLICATE deliveries of an earlier event with the
    * same `idempotencyKey`.
    *
@@ -103,6 +109,27 @@ export interface MapProjectionOptions {
 }
 
 /**
+ * Tenant-scoped context for bulk appends.
+ *
+ * Unlike the per-event {@link ProjectionStoreContext}, a bulk write batches
+ * records from MANY aggregates of one tenant into a single insert, so there is
+ * deliberately no `aggregateId` here — anything a store needs per row must be
+ * carried on the record itself.
+ */
+export interface BulkAppendContext {
+  /** Tenant identifier for multi-tenant isolation (e.g. CH client routing). */
+  tenantId: TenantId;
+
+  /**
+   * Resolved retention policy for the tenant. Absent/null means the resolver
+   * could not produce a value; the write path then stamps
+   * PLATFORM_DEFAULT_RETENTION_DAYS, never indefinite — see
+   * {@link ProjectionStoreContext.retentionPolicy}.
+   */
+  retentionPolicy?: ResolvedRetention | null;
+}
+
+/**
  * Store interface for map projections.
  * Appends individual records produced by the map function.
  */
@@ -110,6 +137,10 @@ export interface AppendStore<Record> {
   /** Appends a single record to the store. */
   append(record: Record, context: ProjectionStoreContext): Promise<void>;
 
-  /** Appends multiple records in a single batch. Used by replay for bulk writes. */
-  bulkAppend?(records: Record[], context: ProjectionStoreContext): Promise<void>;
+  /**
+   * Appends multiple records in a single batch. Used by replay for bulk
+   * writes. Records within one call may span many aggregates of the same
+   * tenant, so the context is tenant-scoped ({@link BulkAppendContext}).
+   */
+  bulkAppend?(records: Record[], context: BulkAppendContext): Promise<void>;
 }
