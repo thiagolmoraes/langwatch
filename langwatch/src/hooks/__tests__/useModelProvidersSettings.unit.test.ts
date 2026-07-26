@@ -10,6 +10,11 @@ vi.mock("../../utils/api", () => ({
       getAllForProjectForFrontend: {
         useQuery: vi.fn(),
       },
+      // The hook also reads the flat row list for ID-based lookups in the
+      // edit drawer, so the mock has to answer that query too.
+      listAllForProjectForFrontend: {
+        useQuery: vi.fn(),
+      },
     },
   },
 }));
@@ -21,9 +26,21 @@ const mockUseQuery = vi.mocked(
   api.modelProvider.getAllForProjectForFrontend.useQuery
 );
 
+const mockListAllUseQuery = vi.mocked(
+  api.modelProvider.listAllForProjectForFrontend.useQuery
+);
+
 describe("useModelProvidersSettings()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Every case below drives hasEnabledProviders through the Record-shaped
+    // query; the flat list only has to resolve so the hook can read its
+    // isLoading flag.
+    mockListAllUseQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as any);
   });
 
   describe("hasEnabledProviders", () => {
