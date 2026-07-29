@@ -1,17 +1,33 @@
-import { Box, Button, Field, HStack, Input, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Field,
+  HStack,
+  Input,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
+import {
+  findModelProviderById,
+  isResolvableProviderId,
+  useAllModelProvidersList,
+} from "../../hooks/useAllModelProvidersList";
+import { useCredentialProbeGate } from "../../hooks/useCredentialProbeGate";
 import { useDrawer } from "../../hooks/useDrawer";
 import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import { useModelProviderApiKeyValidation } from "../../hooks/useModelProviderApiKeyValidation";
 import { useModelProviderForm } from "../../hooks/useModelProviderForm";
 import { useModelProvidersSettings } from "../../hooks/useModelProvidersSettings";
 import { useOrganizationTeamProject } from "../../hooks/useOrganizationTeamProject";
+import { useRequiredCredentialKeys } from "../../hooks/useRequiredCredentialKeys";
 import {
   type MaybeStoredModelProvider,
   modelProviders as modelProvidersRegistry,
 } from "../../server/modelProviders/registry";
 import {
+  getEmptyRequiredCredentialKeys,
   hasUserEnteredNewApiKey,
   hasUserModifiedNonApiKeyFields,
 } from "../../utils/modelProviderHelpers";
@@ -49,9 +65,16 @@ export const EditModelProviderForm = ({
   modelProviderId,
   providerKey,
 }: EditModelProviderFormProps) => {
-  const { providers, providersList } = useModelProvidersSettings({
+  const { providers } = useModelProvidersSettings({
     projectId: projectId,
   });
+  // Flat, uncollapsed list — see useAllModelProvidersList for why the
+  // lookup below can't use the collapsed `providers` Record above.
+  // `isAllProvidersReady` is the hook's "the list definitively arrived"
+  // signal (react-query isSuccess), used below to tell a real stale miss
+  // apart from a list that simply hasn't loaded.
+  const { providers: allProviders, isReady: isAllProvidersReady } =
+    useAllModelProvidersList();
   const { closeDrawer } = useDrawer();
   const { project, team, organization, hasPermission } =
     useOrganizationTeamProject();
@@ -98,32 +121,58 @@ export const EditModelProviderForm = ({
   //     an existing row. The Add Model Provider menu sets this so the
   //     user can stand up a second instance of an already-configured
   //     provider type without colliding with the first.
-  //   - `modelProviderId === "<cuid>"` → edit that specific row. With
-  //     multi-instance enabled the providers Record dedupes by provider
-  //     string and may not contain this row, so we don't fall back on
-  //     `providers[providerKey]` if the id lookup misses (that fallback
-  //     used to silently swap the user's intended row for whichever
-  //     same-type row happened to win the dedupe).
+  //   - `modelProviderId === "<cuid>"` → edit that specific row, resolved
+  //     via the shared `findModelProviderById` against the flat list —
+  //     see useAllModelProvidersList for why the collapsed `providers`
+  //     Record above is the wrong source for this lookup (#5380).
   //   - `modelProviderId` undefined → no specific target, fresh blank
   //     (deep-link from evaluator selector or similar).
-  const provider: MaybeStoredModelProvider = useMemo(() => {
-    if (modelProviderId && modelProviderId !== "new") {
-      // Use the flat list so multi-instance providers sharing the same provider
-      // string (e.g. several "custom" rows) are all findable by their db id.
-      const existing = providersList?.find((p) => p.id === modelProviderId);
-      if (existing) return existing;
-    }
-    return {
-      provider: providerKey,
-      enabled: false,
-      customKeys: null,
-      models: null,
-      embeddingsModels: null,
-      disabledByDefault: true,
-      deploymentMapping: null,
-      extraHeaders: [],
-    };
-  }, [modelProviderId, providerKey, providersList]);
+  const isTargetingSpecificRow = isResolvableProviderId(modelProviderId);
+  const existingRow = useMemo(
+    () =>
+      isTargetingSpecificRow
+        ? findModelProviderById({ providers: allProviders, modelProviderId })
+        : undefined,
+    [isTargetingSpecificRow, allProviders, modelProviderId],
+  );
+
+  // Two DISTINCT concerns, deliberately not collapsed into one flag:
+  //   - Whether we can SUBMIT. An id-targeted edit that didn't resolve to a
+  //     real row must never submit, in EVERY load state (loading, disabled,
+  //     errored, or genuinely empty), so this gates purely on "targeting a
+  //     row we couldn't resolve". Otherwise Save ships `id: undefined`, the
+  //     server treats it as a create, and a phantom duplicate row is written
+  //     (#5380 P2).
+  const cannotResolveTarget = isTargetingSpecificRow && !existingRow;
+  //   - Whether to show the "no longer exists" copy. This is the subset of
+  //     `cannotResolveTarget` where the flat list has DEFINITIVELY arrived, so
+  //     the row is known absent rather than merely unresolved. Gating on
+  //     readiness stops the copy flashing mid-load and stops it lying when the
+  //     list simply failed to load. (An `allProviders.length > 0` proxy
+  //     mis-reads a legitimately empty org as "not loaded" and never fires —
+  //     the original #5380 stale-miss hole.)
+  const isStaleMiss = cannotResolveTarget && isAllProvidersReady;
+
+  // Memoized so the blank template keeps a stable identity across renders:
+  // useModelProviderForm's reset effect lists `provider.extraHeaders` in its
+  // deps, so a fresh `{ ..., extraHeaders: [] }` literal on every render would
+  // refire that effect each render → setState → re-render → "Maximum update
+  // depth exceeded" and a wiped-out Add form. Keyed on the resolved row (or
+  // its absence) and the provider key only.
+  const provider: MaybeStoredModelProvider = useMemo(
+    () =>
+      existingRow ?? {
+        provider: providerKey,
+        enabled: false,
+        customKeys: null,
+        models: null,
+        embeddingsModels: null,
+        disabledByDefault: true,
+        deploymentMapping: null,
+        extraHeaders: [],
+      },
+    [existingRow, providerKey],
+  );
 
   // Detect if provider is using environment variables (enabled but no stored customKeys)
   // Must be computed before the hook call so we can pass it to the hook
@@ -237,6 +286,13 @@ export const EditModelProviderForm = ({
 
   const isLlmProvider = providerDefinition?.type === "llm";
 
+  // Same answer the credential fields render their required markers from.
+  const requiredKeys = useRequiredCredentialKeys({
+    providerKey: provider.provider,
+    displayKeys: state.displayKeys,
+    customKeys: state.customKeys,
+  });
+
   // oauth-device providers (codex) credential through the provider's own
   // sign-in flow: the drawer swaps the API-key fields for it, and Save
   // (name / scope edits) skips every API-key validation path, since the
@@ -261,7 +317,17 @@ export const EditModelProviderForm = ({
     provider.provider,
     state.customKeys,
     projectId,
+    organization?.id,
+    state.scopes,
   );
+
+  // Shared with onboarding and the Langy model gate, so a refusal is not the
+  // end of the road on one surface and a hard block on the next.
+  const { probeRequired, recordRefusal, clearRefusal, saveLabel } =
+    useCredentialProbeGate({
+      customKeys: state.customKeys,
+      resetKey: providerId,
+    });
 
   const handleSave = useCallback(async () => {
     // Clear previous errors
@@ -294,9 +360,25 @@ export const EditModelProviderForm = ({
       const result = keysSchema.safeParse(keysToValidate);
 
       if (!result.success) {
-        const parsedErrors = parseZodFieldErrors(
-          result.error as ZodErrorStructure,
-        );
+        const zodError = result.error as ZodErrorStructure;
+        const parsedErrors = parseZodFieldErrors(zodError);
+        // A rule that spans several credentials (an API key, or a base URL
+        // instead) names no single field, so it has no path to land on and
+        // would leave Save doing nothing visible. Anchor it on a required
+        // field the customer has left empty.
+        const schemaWideMessage = zodError.issues.find(
+          (issue) => !issue.path?.length,
+        )?.message;
+        if (schemaWideMessage) {
+          const anchorKey =
+            getEmptyRequiredCredentialKeys({
+              requiredKeys,
+              values: state.customKeys,
+            })[0] ?? Object.keys(state.displayKeys)[0];
+          if (anchorKey && !parsedErrors[anchorKey]) {
+            parsedErrors[anchorKey] = schemaWideMessage;
+          }
+        }
         setFieldErrors(parsedErrors);
         return;
       }
@@ -311,18 +393,32 @@ export const EditModelProviderForm = ({
     // console, hit a temporary 401, etc.). Safety providers like
     // azure_safety also skip this — their endpoints can't answer the
     // OpenAI-compatible probe at all.
-    if (isLlmProvider && !isOAuthDeviceProvider && userEnteredNewApiKey) {
+    if (
+      isLlmProvider &&
+      !isOAuthDeviceProvider &&
+      userEnteredNewApiKey &&
+      probeRequired
+    ) {
       const isValid = await validateApiKey();
-      if (!isValid) return;
+      if (!isValid) {
+        recordRefusal();
+        return;
+      }
+      clearRefusal();
     }
 
     void actions.submit();
   }, [
+    probeRequired,
+    recordRefusal,
+    clearRefusal,
     isLlmProvider,
     isOAuthDeviceProvider,
     isUsingEnvVars,
     providerDefinition,
+    requiredKeys,
     state.customKeys,
+    state.displayKeys,
     state.initialKeys,
     actions,
     validateApiKey,
@@ -331,6 +427,12 @@ export const EditModelProviderForm = ({
 
   return (
     <VStack gap={4} align="start" width="full">
+      {isStaleMiss && (
+        <Text color="red.500" fontSize="sm">
+          This provider configuration no longer exists. It may have been deleted
+          from another session.
+        </Text>
+      )}
       <VStack align="start" width="full" gap={4}>
         <Field.Root width="full" required>
           <SmallLabel>
@@ -477,10 +579,12 @@ export const EditModelProviderForm = ({
             size="sm"
             colorPalette="orange"
             loading={state.isSaving || isValidatingApiKey}
-            disabled={!state.isDirty && !isAdvancedDirty}
+            disabled={
+              cannotResolveTarget || (!state.isDirty && !isAdvancedDirty)
+            }
             onClick={handleSave}
           >
-            Save
+            {saveLabel}
           </Button>
         </HStack>
       </VStack>

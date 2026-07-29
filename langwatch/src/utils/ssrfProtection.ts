@@ -312,11 +312,7 @@ function validateNotPrivateIpLiteral(
   blockLocal: boolean,
 ): void {
   const ipVersion = isIP(ctx.hostname);
-  if (
-    ipVersion !== 0 &&
-    blockLocal &&
-    isPrivateOrLocalhostIP(ctx.hostname)
-  ) {
+  if (ipVersion !== 0 && blockLocal && isPrivateOrLocalhostIP(ctx.hostname)) {
     logger.warn(
       {
         url: ctx.url,
@@ -618,7 +614,9 @@ function resolveAgentTimeouts(
  * operators frequently need to call services with self-signed certs, which
  * has nothing to do with whether private-IP blocking is on.
  */
-export function createSSRFSafeFetchConfig({ isSaaS }: { isSaaS: boolean }): { rejectUnauthorized: boolean } {
+export function createSSRFSafeFetchConfig({ isSaaS }: { isSaaS: boolean }): {
+  rejectUnauthorized: boolean;
+} {
   return { rejectUnauthorized: isSaaS };
 }
 

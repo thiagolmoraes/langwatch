@@ -1,4 +1,5 @@
 import { buildManagedBedrockLitellmParams } from "../../../../ee/managed-providers/managedBedrockConfig";
+import { getSchemaShape } from "../../../utils/modelProviderHelpers";
 import { prisma } from "../../db";
 import { isCodexModel } from "../../modelProviders/codexRestrictions";
 import type {
@@ -249,16 +250,6 @@ export const prepareEnvKeys = (modelProvider: MaybeStoredModelProvider) => {
   }
 
   // TODO: add AZURE_DEPLOYMENT_NAME and AZURE_EMBEDDINGS_DEPLOYMENT_NAME for deployment name mapping
-
-  const getSchemaShape = (schema: any) => {
-    if ("innerType" in schema) {
-      return schema.innerType().shape;
-    }
-    if ("shape" in schema) {
-      return schema.shape;
-    }
-    return {};
-  };
 
   return Object.fromEntries(
     Object.keys(getSchemaShape(providerDefinition.keysSchema))
