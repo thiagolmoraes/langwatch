@@ -11,11 +11,19 @@ services:
       LANGWATCH_ENDPOINT: http://app:5560
       INSTALL_METHOD: docker
       NODE_ENV: production
+      # No S3_BUCKET_NAME configured (self-hosted, no object storage
+      # provider) — app falls back to local filesystem for dataset
+      # chunks/uploads (src/server/stored-objects/project-storage-destination.ts).
+      # Path must be a persistent volume, else a restart loses data the
+      # DB still points to.
+      LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
     env_file:
       - langwatch/.env
     pull_policy: always
     ports:
       - "5560:5560"
+    volumes:
+      - langwatch-objects:/var/lib/langwatch/objects
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,9 +45,16 @@ services:
       LANGEVALS_ENDPOINT: http://langevals:5562
       LANGWATCH_ENDPOINT: http://app:5560
       NODE_ENV: production
+      # Same local-filesystem fallback as `app` — workers also read/write
+      # dataset chunks (e.g. the PG->S3 backfill task), must share the
+      # same root or a job started on one container can't see files the
+      # other wrote.
+      LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
     env_file:
       - langwatch/.env
     pull_policy: always
+    volumes:
+      - langwatch-objects:/var/lib/langwatch/objects
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +86,29 @@ services:
     pull_policy: always
     environment:
       - DISABLE_EVALUATORS_PRELOAD=true
+
+  # gateway — the AI Gateway (Go binary, services/aigateway). No published
+  # image on this branch yet, built from source via Dockerfile.go_service.
+  # ENVIRONMENT != local forces BLOCK_LOCAL_HTTP_CALLS + REQUIRE_HTTPS_CUSTOM_ENDPOINTS
+  # on (see services/aigateway/config.go validateHostedEgressSecurity) — the
+  # gateway refuses to boot without both once ENVIRONMENT is set.
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.go_service
+    ports:
+      - "5563:5563"
+    environment:
+      ENVIRONMENT: production
+      BLOCK_LOCAL_HTTP_CALLS: "true"
+      REQUIRE_HTTPS_CUSTOM_ENDPOINTS: "true"
+      LW_GATEWAY_BASE_URL: http://app:5560
+      SERVER_ADDR: ":5563"
+    env_file:
+      - langwatch/.env
+    depends_on:
+      - app
+    restart: always
 
   postgres:
     image: postgres:16
@@ -124,3 +162,4 @@ volumes:
   db-data:
   redis-data:
   clickhouse-data:
+  langwatch-objects:
