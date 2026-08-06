@@ -89,9 +89,12 @@ services:
 
   # gateway — the AI Gateway (Go binary, services/aigateway). No published
   # image on this branch yet, built from source via Dockerfile.go_service.
-  # ENVIRONMENT != local forces BLOCK_LOCAL_HTTP_CALLS + REQUIRE_HTTPS_CUSTOM_ENDPOINTS
-  # on (see services/aigateway/config.go validateHostedEgressSecurity) — the
-  # gateway refuses to boot without both once ENVIRONMENT is set.
+  # ENVIRONMENT=local matches how real production runs today: the
+  # ModelProvider points at llama-swap over plain HTTP, so the hosted-only
+  # SSRF checks (BLOCK_LOCAL_HTTP_CALLS, REQUIRE_HTTPS_CUSTOM_ENDPOINTS)
+  # must stay off. Those two flags only matter when ENVIRONMENT != local
+  # (see services/aigateway/config.go validateHostedEgressSecurity), so
+  # they're dropped here instead of left as dead/confusing "true" values.
   gateway:
     build:
       context: .
@@ -99,9 +102,7 @@ services:
     ports:
       - "5563:5563"
     environment:
-      ENVIRONMENT: production
-      BLOCK_LOCAL_HTTP_CALLS: "true"
-      REQUIRE_HTTPS_CUSTOM_ENDPOINTS: "true"
+      ENVIRONMENT: local
       LW_GATEWAY_BASE_URL: http://app:5560
       SERVER_ADDR: ":5563"
     env_file:
