@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/0xdeafcafe/moron v1.0.1-0.20260714030656-2b32ef25bff8
+	github.com/andybalholm/brotli v1.2.0
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.11
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.52.0
@@ -15,14 +16,14 @@ require (
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/langwatch/langwatch/sdk-go v0.2.0
+	github.com/klauspost/compress v1.18.7
+	github.com/langwatch/langwatch/sdks/go v0.2.0
 	github.com/maximhq/bifrost/core v1.4.22
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl v0.151.0
 	github.com/openai/openai-go v1.12.0
 	github.com/osteele/liquid v1.8.1
 	github.com/prometheus/client_golang v1.23.2
-	github.com/redis/go-redis/v9 v9.19.0
 	github.com/stretchr/testify v1.11.1
 	github.com/thessem/zap-prettyconsole v0.6.0
 	github.com/tidwall/gjson v1.18.0
@@ -59,7 +60,6 @@ require (
 	github.com/Code-Hex/dd v1.1.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
 	github.com/alecthomas/participle/v2 v2.1.4 // indirect
-	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/antchfx/xmlquery v1.5.1 // indirect
 	github.com/antchfx/xpath v1.3.6 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 // indirect
@@ -113,7 +113,6 @@ require (
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -159,7 +158,6 @@ require (
 	go.opentelemetry.io/collector/pdata/pprofile v0.151.0 // indirect
 	go.opentelemetry.io/otel/log v0.19.0 // indirect
 	go.starlark.net v0.0.0-20260102030733-3fee463870c9 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/arch v0.23.0 // indirect
@@ -186,4 +184,4 @@ require (
 // external (out-of-tree) consumers who fetch via the proxy;
 // release-please cuts those tags. In this repo, this replace always
 // wins.
-replace github.com/langwatch/langwatch/sdk-go => ./sdk-go
+replace github.com/langwatch/langwatch/sdks/go => ./sdks/go
