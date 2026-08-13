@@ -1,0 +1,178 @@
+services:
+  app:
+    image: langwatch/langwatch:latest
+    environment:
+      SKIP_ENV_VALIDATION: true
+      DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
+      CLICKHOUSE_URL: http://default:langwatch@clickhouse:8123/langwatch
+      # This compose stack runs a plain ClickHouse with no backups, so
+      # system.backup_log does not exist here. Backup-status collection is on by
+      # default (an unset flag must not disarm the alerts that read those gauges
+      # in deployments that do have backups), so opt out explicitly rather than
+      # failing the query on every stats tick.
+      CLICKHOUSE_BACKUP_METRICS_ENABLED: "false"
+      REDIS_URL: redis://redis:6379
+      LANGWATCH_NLP_SERVICE: http://langwatch_nlp:5561
+      LANGEVALS_ENDPOINT: http://langevals:5562
+      LANGWATCH_ENDPOINT: http://app:5560
+      INSTALL_METHOD: docker
+      NODE_ENV: production
+      # No S3_BUCKET_NAME configured (self-hosted, no object storage
+      # provider) — app falls back to local filesystem for dataset
+      # chunks/uploads (src/server/stored-objects/project-storage-destination.ts).
+      # Path must be a persistent volume, else a restart loses data the
+      # DB still points to.
+      LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
+    env_file:
+      - platform/app/.env
+    pull_policy: always
+    ports:
+      - "5560:5560"
+    volumes:
+      - langwatch-objects:/var/lib/langwatch/objects
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  workers:
+    image: langwatch/langwatch:latest
+    command: ["pnpm", "run", "start:workers"]
+    working_dir: /app/platform/app
+    environment:
+      SKIP_ENV_VALIDATION: true
+      DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
+      CLICKHOUSE_URL: http://default:langwatch@clickhouse:8123/langwatch
+      # This compose stack runs a plain ClickHouse with no backups, so
+      # system.backup_log does not exist here. Backup-status collection is on by
+      # default (an unset flag must not disarm the alerts that read those gauges
+      # in deployments that do have backups), so opt out explicitly rather than
+      # failing the query on every stats tick.
+      CLICKHOUSE_BACKUP_METRICS_ENABLED: "false"
+      REDIS_URL: redis://redis:6379
+      LANGWATCH_NLP_SERVICE: http://langwatch_nlp:5561
+      LANGEVALS_ENDPOINT: http://langevals:5562
+      LANGWATCH_ENDPOINT: http://app:5560
+      NODE_ENV: production
+      # Same local-filesystem fallback as `app` — workers also read/write
+      # dataset chunks (e.g. the PG->S3 backfill task), must share the
+      # same root or a job started on one container can't see files the
+      # other wrote.
+      LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
+    env_file:
+      - platform/app/.env
+    pull_policy: always
+    volumes:
+      - langwatch-objects:/var/lib/langwatch/objects
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: always
+
+  # nlpgo — the Go NLP engine. langwatch/langwatch_nlp is now a static Go
+  # binary (Dockerfile.langwatch_nlp); it still binds :5561 and reads
+  # LANGWATCH_ENDPOINT for evaluator + agent-workflow callbacks.
+  langwatch_nlp:
+    image: langwatch/langwatch_nlp:latest
+    env_file:
+      - platform/app/.env
+    ports:
+      - "5561:5561"
+    restart: always
+    pull_policy: always
+    environment:
+      - LANGWATCH_ENDPOINT=http://app:5560
+
+  langevals:
+    image: langwatch/langevals:latest
+    ports:
+      - "5562:5562"
+    restart: always
+    pull_policy: always
+    environment:
+      - DISABLE_EVALUATORS_PRELOAD=true
+
+  # gateway — the AI Gateway (Go binary, services/aigateway). No published
+  # image on this branch yet, built from source via Dockerfile.go_service.
+  # ENVIRONMENT=local matches how real production runs today: the
+  # ModelProvider points at llama-swap over plain HTTP, so the hosted-only
+  # SSRF checks (BLOCK_LOCAL_HTTP_CALLS, REQUIRE_HTTPS_CUSTOM_ENDPOINTS)
+  # must stay off. Those two flags only matter when ENVIRONMENT != local
+  # (see services/aigateway/config.go validateHostedEgressSecurity), so
+  # they're dropped here instead of left as dead/confusing "true" values.
+  gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.go_service
+    ports:
+      - "5563:5563"
+    environment:
+      ENVIRONMENT: local
+      LW_GATEWAY_BASE_URL: http://app:5560
+      SERVER_ADDR: ":5563"
+    env_file:
+      - platform/app/.env
+    depends_on:
+      - app
+    restart: always
+
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: prisma
+      POSTGRES_PASSWORD: prisma
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prisma -d mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clickhouse:
+    image: langwatch/clickhouse-serverless:0.2.0
+    environment:
+      CLICKHOUSE_PASSWORD: langwatch
+    ports:
+      - "8123:8123"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: always
+
+volumes:
+  db-data:
+  redis-data:
+  clickhouse-data:
+  langwatch-objects:
