@@ -5,6 +5,7 @@ import { fireScenarioCreatedNurturing } from "~/../ee/billing/nurturing/hooks/fe
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { trackServerEvent } from "~/server/posthog";
 import { ScenarioNotFoundError } from "~/server/scenarios/errors";
+import { scenarioParameterDefinitionsSchema } from "~/server/scenarios/parameters";
 import { MAX_SCENARIO_MAX_TURNS } from "~/server/scenarios/scenario.constants";
 import { ScenarioService } from "~/server/scenarios/scenario.service";
 import { captureException } from "~/utils/posthogErrorCapture";
@@ -24,6 +25,9 @@ export const createScenarioSchema = projectSchema.extend({
   judgeModel: z.string().nullish(),
   // Optional cap on conversation turns; null clears back to the SDK default.
   maxTurns: z.number().int().min(1).max(MAX_SCENARIO_MAX_TURNS).nullish(),
+  // The parameters the scenario declares, each with an optional description
+  // and default. A run supplies values for these names.
+  parameters: scenarioParameterDefinitionsSchema.optional(),
 });
 
 export const updateScenarioSchema = projectSchema.extend({
@@ -35,6 +39,7 @@ export const updateScenarioSchema = projectSchema.extend({
   simulatorModel: z.string().nullish(),
   judgeModel: z.string().nullish(),
   maxTurns: z.number().int().min(1).max(MAX_SCENARIO_MAX_TURNS).nullish(),
+  parameters: scenarioParameterDefinitionsSchema.optional(),
 });
 
 /**

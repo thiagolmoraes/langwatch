@@ -1,6 +1,6 @@
-import { OrganizationUserRole, type Project } from "@prisma/client";
 import { useEffect, useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
+import { OrganizationUserRole, type Project } from "~/generated/prisma/client";
 import { useRouter } from "~/utils/compat/next-router";
 import {
   EXTERNAL_MEMBER_PERMISSIONS,
@@ -191,6 +191,7 @@ export const useOrganizationTeamProject = (
         // (no `as` cast) makes the compiler flag any new required column, so a
         // future field can never silently ship unset here. See ADR-057.
         apiKey: "",
+        governedSqlKey: "",
         teamId: "",
         kind: "application",
         firstMessage: true,
@@ -214,6 +215,11 @@ export const useOrganizationTeamProject = (
         // this is inert either way; null keeps it inert AND safe.
         langyEgressAllowlist: null,
         departmentId: null,
+        // A share viewer gets no project rail, and these two columns exist only
+        // to grow destinations on it. `null` reads as "no coding-agent signal",
+        // which is both inert and true of the view a share token opens.
+        lastCodingAgentSessionAt: null,
+        lastCodingAgentPullRequestAt: null,
       }
     : undefined;
 
@@ -250,7 +256,7 @@ export const useOrganizationTeamProject = (
   );
   const [localStorageProjectSlug, setLocalStorageProjectSlug] =
     useLocalStorage<string>("selectedProjectSlug", "");
-  const [, setLastVisitedHomeKind] = useLocalStorage<
+  const [lastVisitedHomeKind, setLastVisitedHomeKind] = useLocalStorage<
     "" | "project" | "personal"
   >("lastVisitedHomeKind", "");
 
@@ -453,7 +459,12 @@ export const useOrganizationTeamProject = (
     // slug: `project` also resolves from the persisted selectedProjectSlug on
     // non-project routes (e.g. /me), and marking "project" there would clobber
     // MyLayout's "personal" and wrongly bounce `/` back to the project.
-    if (project && typeof router.query.project === "string") {
+    // `projectSlugFromUrl` (not raw `router.query.project`) so reserved slugs
+    // like /messages or /datasets don't count as project visits either.
+    if (project && !!projectSlugFromUrl && lastVisitedHomeKind !== "project") {
+      // Guarded like the setters above: every unguarded write dispatches a
+      // storage event that setStates all mounted subscribers, which can cascade
+      // past React's nested-update limit during route transitions.
       setLastVisitedHomeKind("project");
     }
     // We want to update localstorage values only once, forward, doesn't matter if localstorage
@@ -552,7 +563,7 @@ export const useOrganizationTeamProject = (
       typeof router.query.project == "string" &&
       finalProject.slug !== router.query.project
     ) {
-      // Preserve the sub-path so /bad-slug/messages → /good-slug/messages
+      // Preserve the sub-path so /bad-slug/traces → /good-slug/traces
       // query.project is decoded by React Router (%5Bproject%5D → [project]),
       // but asPath keeps percent-encoding. Match both forms, always slice from
       // the original encoded pathname to avoid decoding characters in the sub-path.

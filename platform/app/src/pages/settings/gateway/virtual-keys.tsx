@@ -33,9 +33,14 @@ import { ConfirmDialog } from "~/components/gateway/ConfirmDialog";
 import { formatBudgetUsd } from "~/components/gateway/formatBudgetUsd";
 import { GatewayErrorPanel } from "~/components/gateway/GatewayErrorPanel";
 import { resolveTracesHrefForKey } from "~/components/gateway/tracesHrefForKey";
+import {
+  VirtualKeyBudgetBar,
+  type VirtualKeyBudgetBarValue,
+} from "~/components/gateway/VirtualKeyBudgetBar";
 import { VirtualKeyCreateDrawer } from "~/components/gateway/VirtualKeyCreateDrawer";
 import { VirtualKeyEditDrawer } from "~/components/gateway/VirtualKeyEditDrawer";
 import { VirtualKeySecretReveal } from "~/components/gateway/VirtualKeySecretReveal";
+import { isExpired } from "~/components/gateway/virtualKeyExpiration";
 import { ProviderScopeChips } from "~/components/settings/ProviderScopeChips";
 import { PageLayout } from "~/components/ui/layouts/PageLayout";
 import { Link } from "~/components/ui/link";
@@ -51,6 +56,27 @@ import { formatTimeAgo } from "~/utils/formatTimeAgo";
 /** Deep link from a key's spend to its Usage view over the same window. */
 function usageHrefForKey(virtualKeyId: string): string {
   return `/settings/gateway/usage?vk=${virtualKeyId}&days=mtd`;
+}
+
+/**
+ * What the status column says, which is not always what the column stores.
+ *
+ * Expiry is a date on an ACTIVE key rather than a status value, so the badge
+ * derives it. The stored stops come first: a revoked key that also carried a
+ * date is revoked, and reporting it as expired would offer a fix that does
+ * not exist.
+ */
+function statusBadge(vk: { status: string; expiresAt?: string | null }): {
+  label: string;
+  colorPalette: string;
+} {
+  if (vk.status === "revoked") return { label: "revoked", colorPalette: "red" };
+  if (vk.status === "disabled")
+    return { label: "disabled", colorPalette: "yellow" };
+  if (isExpired(vk.expiresAt)) {
+    return { label: "expired", colorPalette: "orange" };
+  }
+  return { label: "active", colorPalette: "green" };
 }
 
 type ScopeEntry = {
@@ -79,7 +105,7 @@ function VirtualKeysPage() {
   const canRevoke = hasPermission("virtualKeys:delete");
   const canUpdate = hasPermission("virtualKeys:update");
 
-  const utils = api.useContext();
+  const utils = api.useUtils();
   const orgId = organization?.id ?? "";
   const listQuery = api.virtualKeys.list.useQuery(
     { organizationId: orgId },
@@ -103,6 +129,13 @@ function VirtualKeysPage() {
     const map = new Map<string, string>();
     for (const row of spendQuery.data ?? []) {
       map.set(row.virtualKeyId, row.spentUsd);
+    }
+    return map;
+  }, [spendQuery.data]);
+  const budgetByKeyId = useMemo(() => {
+    const map = new Map<string, VirtualKeyBudgetBarValue>();
+    for (const row of spendQuery.data ?? []) {
+      if (row.budget) map.set(row.virtualKeyId, row.budget);
     }
     return map;
   }, [spendQuery.data]);
@@ -158,8 +191,12 @@ function VirtualKeysPage() {
   const [statusTab, setStatusTab] = useState<"active" | "revoked">("active");
 
   const allRows = listQuery.data ?? [];
+  // A disabled key belongs with the live ones: it is paused, not finished,
+  // and it used to appear in neither tab, which left the only route to it a
+  // link somebody had kept. Revoked is the one terminal state, so it keeps
+  // its own tab.
   const activeRows = useMemo(
-    () => allRows.filter((vk) => vk.status === "active"),
+    () => allRows.filter((vk) => vk.status !== "revoked"),
     [allRows],
   );
   const revokedRows = useMemo(
@@ -318,7 +355,18 @@ function VirtualKeysPage() {
                 </Card.Root>
               ) : (
                 <Card.Root width="full" overflow="hidden">
-                  <Card.Body paddingY={0} paddingX={0}>
+                  {/* The card clips; the body scrolls. Without this the
+                      right-hand columns are simply unreachable on a narrow
+                      window instead of scrolling into view. Focusable so the
+                      scroll is reachable from the keyboard alone. */}
+                  <Card.Body
+                    paddingY={0}
+                    paddingX={0}
+                    overflowX="auto"
+                    tabIndex={0}
+                    role="region"
+                    aria-label="Virtual keys table"
+                  >
                     <Table.Root variant="line" size="md" width="full">
                       <Table.Header>
                         <Table.Row>
@@ -394,13 +442,17 @@ function VirtualKeysPage() {
                               </Text>
                             </Table.Cell>
                             <Table.Cell>
-                              <Badge
-                                colorPalette={
-                                  vk.status === "active" ? "green" : "red"
-                                }
-                              >
-                                {vk.status}
-                              </Badge>
+                              {(() => {
+                                const badge = statusBadge(vk);
+                                return (
+                                  <Badge
+                                    colorPalette={badge.colorPalette}
+                                    data-testid={`vk-status-${vk.id}`}
+                                  >
+                                    {badge.label}
+                                  </Badge>
+                                );
+                              })()}
                             </Table.Cell>
                             <Table.Cell>
                               <ProviderScopeChips
@@ -424,64 +476,71 @@ function VirtualKeysPage() {
                                 </Badge>
                               ) : vk.routingMode === "FALLBACK_ALL" ? (
                                 <Text fontSize="xs" color="fg.muted">
-                                  fallback: all providers
+                                  fallback
                                 </Text>
                               ) : (
                                 <Text fontSize="xs" color="fg.muted">
-                                  no fallback
+                                  {"—"}
                                 </Text>
                               )}
                             </Table.Cell>
                             <Table.Cell
                               onClick={(e) => e.stopPropagation()}
                               cursor="default"
+                              minWidth="140px"
                             >
-                              <Link
-                                className="group"
-                                href={usageHrefForKey(vk.id)}
-                                data-testid={`vk-spend-${vk.id}`}
-                                aria-label={`Usage for ${vk.name}, this month`}
-                                width="full"
-                              >
-                                <HStack
-                                  gap={1}
-                                  justify="space-between"
+                              <VStack align="stretch" gap={1.5} width="full">
+                                <Link
+                                  className="group"
+                                  href={usageHrefForKey(vk.id)}
+                                  data-testid={`vk-spend-${vk.id}`}
+                                  aria-label={`Usage for ${vk.name}, this month`}
                                   width="full"
                                 >
-                                  <Text
-                                    fontSize="sm"
-                                    fontVariantNumeric="tabular-nums"
-                                    color={
-                                      spendByKeyId.get(vk.id) &&
-                                      Number.parseFloat(
-                                        spendByKeyId.get(vk.id)!,
-                                      ) > 0
-                                        ? "fg"
-                                        : "fg.muted"
-                                    }
-                                    _groupHover={{
-                                      textDecoration: "underline",
-                                    }}
+                                  <HStack
+                                    gap={1}
+                                    justify="space-between"
+                                    width="full"
                                   >
-                                    {spendQuery.isLoading
-                                      ? "…"
-                                      : spendQuery.isError
-                                        ? "n/a"
-                                        : formatBudgetUsd(
-                                            spendByKeyId.get(vk.id) ?? "0",
-                                          )}
-                                  </Text>
-                                  <Box
-                                    as="span"
-                                    data-testid={`vk-spend-chart-${vk.id}`}
-                                    color="fg.muted"
-                                    aria-hidden
-                                    _groupHover={{ color: "fg" }}
-                                  >
-                                    <LineChart size={14} />
-                                  </Box>
-                                </HStack>
-                              </Link>
+                                    <Text
+                                      fontSize="sm"
+                                      fontVariantNumeric="tabular-nums"
+                                      color={
+                                        spendByKeyId.get(vk.id) &&
+                                        Number.parseFloat(
+                                          spendByKeyId.get(vk.id)!,
+                                        ) > 0
+                                          ? "fg"
+                                          : "fg.muted"
+                                      }
+                                      _groupHover={{
+                                        textDecoration: "underline",
+                                      }}
+                                    >
+                                      {spendQuery.isLoading
+                                        ? "…"
+                                        : spendQuery.isError
+                                          ? "n/a"
+                                          : formatBudgetUsd(
+                                              spendByKeyId.get(vk.id) ?? "0",
+                                            )}
+                                    </Text>
+                                    <Box
+                                      as="span"
+                                      data-testid={`vk-spend-chart-${vk.id}`}
+                                      color="fg.muted"
+                                      aria-hidden
+                                      _groupHover={{ color: "fg" }}
+                                    >
+                                      <LineChart size={14} />
+                                    </Box>
+                                  </HStack>
+                                </Link>
+                                <VirtualKeyBudgetBar
+                                  value={budgetByKeyId.get(vk.id)}
+                                  virtualKeyId={vk.id}
+                                />
+                              </VStack>
                             </Table.Cell>
                             <Table.Cell>
                               {vk.lastUsedAt ? (
@@ -506,7 +565,7 @@ function VirtualKeysPage() {
                               onClick={(e) => e.stopPropagation()}
                               cursor="default"
                             >
-                              {vk.status === "active" && (
+                              {vk.status !== "revoked" && (
                                 <Menu.Root>
                                   <Menu.Trigger asChild>
                                     <Button
@@ -541,7 +600,12 @@ function VirtualKeysPage() {
                                         <Bird size={14} /> View traces
                                       </Menu.Item>
                                     )}
-                                    {canUpdate && (
+                                    {/* Editing and rotating a paused key
+                                        would take effect the moment it is
+                                        enabled again, so both wait for the
+                                        key to be live. Its detail page has
+                                        the Enable button. */}
+                                    {canUpdate && vk.status === "active" && (
                                       <Menu.Item
                                         value="edit"
                                         onClick={() => setEditing(vk)}
@@ -549,7 +613,7 @@ function VirtualKeysPage() {
                                         <Pencil size={14} /> Edit
                                       </Menu.Item>
                                     )}
-                                    {canRotate && (
+                                    {canRotate && vk.status === "active" && (
                                       <Menu.Item
                                         value="rotate"
                                         onClick={() =>

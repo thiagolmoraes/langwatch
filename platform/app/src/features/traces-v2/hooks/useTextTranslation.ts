@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { shouldShowGenericTranslateError } from "~/components/messages/translationError";
 import { toaster } from "~/components/ui/toaster";
 import { useOrganizationTeamProject } from "~/hooks/useOrganizationTeamProject";
 import { api } from "~/utils/api";
+import { shouldShowGenericTranslateError } from "../utils/translationError";
 
 export interface UseTextTranslationResult {
   /** The texts to render: translations when active, originals otherwise. */
@@ -42,7 +42,7 @@ export function useTextTranslation({
   // automatically.
   const [activeFor, setActiveFor] = useState<string | null>(null);
   // react-query v4's shared MutationObserver only tracks the LAST
-  // `mutateAsync`, so `translateAPI.isLoading` under-reports when several
+  // `mutateAsync`, so `translateAPI.isPending` under-reports when several
   // per-text calls run concurrently — and without a guard a second click
   // mid-flight would fire a duplicate set of billed LLM calls. Track the
   // in-flight state locally instead.

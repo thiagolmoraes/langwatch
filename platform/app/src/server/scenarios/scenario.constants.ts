@@ -39,6 +39,18 @@ export const CHILD_PROCESS = {
 } as const;
 
 /**
+ * Threshold in milliseconds after which a run without activity is
+ * considered stalled. Set to 2x the child process timeout
+ * to cover all reasonable completion scenarios.
+ *
+ * This is the simulationRunExecution process manager's stall-watchdog
+ * threshold: the wake fires once a run has been quiet this long and
+ * force-finishes it ERROR with reason "stalled". Stored status is the
+ * only truth — nothing derives STALLED at read time anymore.
+ */
+export const STALL_THRESHOLD_MS = CHILD_PROCESS.TIMEOUT_MS * 2;
+
+/**
  * Turn cap the scenario engine uses when a scenario sets none. Mirrors the
  * @langwatch/scenario SDK default. Used only in copy and hints, never sent.
  */

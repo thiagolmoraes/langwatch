@@ -4226,6 +4226,2198 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/analytics/query/clickhouse": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "The query ran, and the result is scoped to the caller's project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "type"
+                        ]
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "statistics": {
+                      "type": "object",
+                      "properties": {
+                        "elapsedMs": {
+                          "type": "number"
+                        },
+                        "rowsRead": {
+                          "type": "number"
+                        },
+                        "bytesRead": {
+                          "type": "number"
+                        },
+                        "rowsReturned": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "elapsedMs",
+                        "rowsRead",
+                        "bytesRead",
+                        "rowsReturned"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "followsTimeWindow": {
+                      "type": "boolean"
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "RESULT_TRUNCATED",
+                              "POSSIBLE_FANOUT",
+                              "UNBOUNDED_TIME_RANGE",
+                              "MISSING_TIME_BUCKETS",
+                              "INCOMPLETE_COMPARISON_PERIOD"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "meta": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "columns",
+                    "rows",
+                    "statistics",
+                    "truncated",
+                    "followsTimeWindow",
+                    "diagnostics"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1ProjectsByProjectIdAnalyticsQueryClickhouse",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          }
+        ],
+        "summary": "Run governed analytics SQL",
+        "description": "Executes one read-only ClickHouse SELECT over the governed analytics datasets and returns typed columns, rows, execution statistics, truncation state and diagnostics. The query runs as a restricted database identity scoped to the authenticated project. Diagnostics are advisory and never reject a query. An empty diagnostics list means no known issue was detected. It is not proof that the answer is the one you meant.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sql": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50000
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "timeWindow": {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "end": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "start",
+                      "end"
+                    ]
+                  }
+                },
+                "required": [
+                  "sql"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/schema": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "The governed schema, scoped to the caller's permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "database": {
+                      "type": "string"
+                    },
+                    "datasets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "grain": {
+                            "type": "string"
+                          },
+                          "joinKeys": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "timeColumn": {
+                            "type": "string"
+                          },
+                          "freshness": {
+                            "type": "string"
+                          },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "unit": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "ms",
+                                    "USD",
+                                    "tokens",
+                                    "tokens/s",
+                                    null
+                                  ]
+                                },
+                                "gates": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "input",
+                                      "output",
+                                      "costs"
+                                    ]
+                                  }
+                                },
+                                "available": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "type",
+                                "description",
+                                "unit",
+                                "gates",
+                                "available"
+                              ]
+                            }
+                          },
+                          "exampleSql": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "description",
+                          "grain",
+                          "joinKeys",
+                          "timeColumn",
+                          "freshness",
+                          "columns",
+                          "exampleSql"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "database",
+                    "datasets"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1ProjectsByProjectIdAnalyticsSchema",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          }
+        ],
+        "summary": "Discover the governed analytics schema",
+        "description": "Lists the governed analytics datasets this key may query, with each column's type, description, the permissions that unlock it, and whether this caller holds them — plus each dataset's grain, join keys, partition-pruning time column, freshness and a runnable example query.",
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/charts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "The project's saved workbench charts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "definition": {
+                            "type": "object",
+                            "properties": {
+                              "version": {
+                                "type": "number"
+                              },
+                              "sql": {
+                                "type": "string"
+                              },
+                              "parameters": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              "vegaLiteSpec": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "version",
+                              "sql",
+                              "parameters"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "platformUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "definition",
+                          "createdAt",
+                          "updatedAt",
+                          "platformUrl"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1ProjectsByProjectIdAnalyticsCharts",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          }
+        ],
+        "summary": "List saved workbench charts",
+        "description": "Lists every saved governed SQL chart in this project, each with the statement it runs, the parameter values it was saved with and the Vega-Lite specification that draws it. Charts built with the chart builder are a different kind and are not listed here.",
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      },
+      "post": {
+        "responses": {
+          "201": {
+            "description": "The chart was saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "definition": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "number"
+                        },
+                        "sql": {
+                          "type": "string"
+                        },
+                        "parameters": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "vegaLiteSpec": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "sql",
+                        "parameters"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "platformUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "definition",
+                    "createdAt",
+                    "updatedAt",
+                    "platformUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1ProjectsByProjectIdAnalyticsCharts",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          }
+        ],
+        "summary": "Save a workbench chart",
+        "description": "Saves a governed SQL statement, its bound parameter values and an optional Vega-Lite specification as one chart. The statement is validated by the governed analytics SQL validator against this key's own permissions, and the specification by the visualization policy, before anything is written — a chart that could not be run or drawn is refused rather than stored.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "definition": {}
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/charts/{chartId}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "The saved chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "definition": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "number"
+                        },
+                        "sql": {
+                          "type": "string"
+                        },
+                        "parameters": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "vegaLiteSpec": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "sql",
+                        "parameters"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "platformUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "definition",
+                    "createdAt",
+                    "updatedAt",
+                    "platformUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No chart with this id in this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getApiV1ProjectsByProjectIdAnalyticsChartsByChartId",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "chartId",
+            "required": true
+          }
+        ],
+        "summary": "Get a saved workbench chart",
+        "description": "Returns one saved governed SQL chart with its statement, parameter values and specification. A chart saved in another project is reported as not found.",
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "The updated chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "definition": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "number"
+                        },
+                        "sql": {
+                          "type": "string"
+                        },
+                        "parameters": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "vegaLiteSpec": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "sql",
+                        "parameters"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "platformUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "definition",
+                    "createdAt",
+                    "updatedAt",
+                    "platformUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No chart with this id in this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchApiV1ProjectsByProjectIdAnalyticsChartsByChartId",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "chartId",
+            "required": true
+          }
+        ],
+        "summary": "Update a saved workbench chart",
+        "description": "Replaces a saved chart's name, its definition, or both. A definition offered here passes exactly the validators a save passes, resolved against this key's current permissions — so a chart cannot be edited into naming a column the caller may no longer read. A request carrying neither field is refused.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "definition": {}
+                },
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      },
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "The chart was deleted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No chart with this id in this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "meta": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "span_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "deleteApiV1ProjectsByProjectIdAnalyticsChartsByChartId",
+        "tags": [
+          "Analytics / Governed SQL"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "chartId",
+            "required": true
+          }
+        ],
+        "summary": "Delete a saved workbench chart",
+        "description": "Deletes one saved governed SQL chart. Answers 204 with no body; deleting a chart that is not in this project is reported as not found.",
+        "security": [
+          {
+            "project_api_key": []
+          }
+        ]
+      }
+    },
     "/api/coding-agent/sessions/{sessionId}/events": {
       "get": {
         "responses": {
@@ -7924,6 +10116,22 @@
                           "type": "string",
                           "description": "Why the evaluator declined to score this input"
                         },
+                        "cost": {
+                          "type": "object",
+                          "properties": {
+                            "currency": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "currency",
+                            "amount"
+                          ],
+                          "description": "What the attempt cost, when the evaluator spent money before declining to score"
+                        },
                         "passed": {
                           "type": "boolean",
                           "description": "Always true in guardrail mode, so a skip does not block"
@@ -8213,6 +10421,22 @@
                         "details": {
                           "type": "string",
                           "description": "Why the evaluator declined to score this input"
+                        },
+                        "cost": {
+                          "type": "object",
+                          "properties": {
+                            "currency": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "currency",
+                            "amount"
+                          ],
+                          "description": "What the attempt cost, when the evaluator spent money before declining to score"
                         },
                         "passed": {
                           "type": "boolean",
@@ -8513,6 +10737,22 @@
                           "type": "string",
                           "description": "Why the evaluator declined to score this input"
                         },
+                        "cost": {
+                          "type": "object",
+                          "properties": {
+                            "currency": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "currency",
+                            "amount"
+                          ],
+                          "description": "What the attempt cost, when the evaluator spent money before declining to score"
+                        },
                         "passed": {
                           "type": "boolean",
                           "description": "Always true in guardrail mode, so a skip does not block"
@@ -8802,6 +11042,22 @@
                         "details": {
                           "type": "string",
                           "description": "Why the evaluator declined to score this input"
+                        },
+                        "cost": {
+                          "type": "object",
+                          "properties": {
+                            "currency": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "currency",
+                            "amount"
+                          ],
+                          "description": "What the attempt cost, when the evaluator spent money before declining to score"
                         },
                         "passed": {
                           "type": "boolean",
@@ -14938,22 +17194,34 @@
                             "type": "string"
                           },
                           "created_at": {
-                            "type": "string"
+                            "type": "string",
+                            "format": "date-time"
                           },
                           "updated_at": {
-                            "type": "string"
+                            "type": "string",
+                            "format": "date-time"
                           },
                           "last_used_at": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "format": "date-time"
                           },
                           "revoked_at": {
                             "type": [
                               "string",
                               "null"
-                            ]
+                            ],
+                            "format": "date-time"
+                          },
+                          "expires_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                           }
                         },
                         "required": [
@@ -14976,7 +17244,8 @@
                           "created_at",
                           "updated_at",
                           "last_used_at",
-                          "revoked_at"
+                          "revoked_at",
+                          "expires_at"
                         ]
                       }
                     },
@@ -15341,22 +17610,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -15379,7 +17660,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     },
                     "secret": {
@@ -15699,6 +17981,10 @@
                       "policy"
                     ]
                   },
+                  "expires_at": {
+                    "type": "string",
+                    "description": "When the key stops serving. Omit it and the key never expires. A date that has already passed is refused with `virtual_key_expiry_in_past`, rather than writing a key that is dead on arrival."
+                  },
                   "budget": {
                     "type": [
                       "object",
@@ -15792,29 +18078,6 @@
                       "fallback": {
                         "type": "object",
                         "properties": {
-                          "on": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "enum": [
-                                "5xx",
-                                "timeout",
-                                "rate_limit_exceeded",
-                                "network_error",
-                                "circuit_breaker"
-                              ]
-                            },
-                            "default": [
-                              "5xx",
-                              "timeout",
-                              "rate_limit_exceeded"
-                            ]
-                          },
-                          "timeoutMs": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "default": 30000
-                          },
                           "maxAttempts": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
@@ -15822,12 +18085,6 @@
                           }
                         },
                         "default": {
-                          "on": [
-                            "5xx",
-                            "timeout",
-                            "rate_limit_exceeded"
-                          ],
-                          "timeoutMs": 30000,
                           "maxAttempts": 3
                         }
                       },
@@ -16065,22 +18322,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -16103,7 +18372,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     }
                   },
@@ -16472,22 +18742,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -16510,7 +18792,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     }
                   },
@@ -16777,6 +19060,13 @@
                       "policy"
                     ]
                   },
+                  "expires_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "When the key stops serving. Omit it and the stored date stays where it is; null clears it, so the key never expires; a date moves it. A key whose date has already passed accepts this edit like any other, which is how an expired key is put back in service without minting a new secret. A date in the past is refused with `virtual_key_expiry_in_past`."
+                  },
                   "budget": {
                     "type": [
                       "object",
@@ -16870,29 +19160,6 @@
                       "fallback": {
                         "type": "object",
                         "properties": {
-                          "on": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "enum": [
-                                "5xx",
-                                "timeout",
-                                "rate_limit_exceeded",
-                                "network_error",
-                                "circuit_breaker"
-                              ]
-                            },
-                            "default": [
-                              "5xx",
-                              "timeout",
-                              "rate_limit_exceeded"
-                            ]
-                          },
-                          "timeoutMs": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "default": 30000
-                          },
                           "maxAttempts": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
@@ -16900,12 +19167,6 @@
                           }
                         },
                         "default": {
-                          "on": [
-                            "5xx",
-                            "timeout",
-                            "rate_limit_exceeded"
-                          ],
-                          "timeoutMs": 30000,
                           "maxAttempts": 3
                         }
                       },
@@ -17488,22 +19749,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -17526,7 +19799,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     },
                     "secret": {
@@ -17858,22 +20132,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -17896,7 +20182,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     }
                   },
@@ -18241,22 +20528,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -18279,7 +20578,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     }
                   },
@@ -18607,22 +20907,34 @@
                           "type": "string"
                         },
                         "created_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "updated_at": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "last_used_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
                         },
                         "revoked_at": {
                           "type": [
                             "string",
                             "null"
-                          ]
+                          ],
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time",
+                          "description": "When the key stops serving, or null for a key that never expires. Requests presented after this moment are refused with `virtual_key_expired`. `status` stays `active` past the date on purpose: the three status values are what clients switch on, and the key stays editable so the date can be extended."
                         }
                       },
                       "required": [
@@ -18645,7 +20957,8 @@
                         "created_at",
                         "updated_at",
                         "last_used_at",
-                        "revoked_at"
+                        "revoked_at",
+                        "expires_at"
                       ]
                     }
                   },
@@ -40370,7 +42683,7 @@
           }
         ],
         "summary": "Update a provisioned user",
-        "description": "Applies RFC 7644 section 3.5.2 patch operations. What is implemented: `replace` of `active` (deactivating or reactivating the account), of `userName`, and of `name.givenName` / `name.familyName`, written either as an operation path or as keys inside a value object; and `add`, `replace` or `remove` of the enterprise `costCenter`, which reassigns the member's department. Operations outside that set are accepted and change nothing, so a provider sending its full patch set is never rejected.",
+        "description": "Applies RFC 7644 section 3.5.2 patch operations. What is implemented: `replace` of `active` (deactivating or reactivating the account), of `userName`, and of `name.givenName` / `name.familyName`, written either as an operation path or as keys inside a value object; and `add`, `replace` or `remove` of the enterprise `costCenter`, which reassigns the member's department. Operation names are read without regard to case, so the capitalized `Replace` that Entra ID writes is understood. Operations outside that set are accepted and change nothing, so a provider sending its full patch set is never rejected.",
         "security": [
           {
             "scim_bearer": []
@@ -41392,7 +43705,7 @@
           }
         ],
         "summary": "Update a provisioned group",
-        "description": "Applies RFC 7644 section 3.5.2 patch operations. What is implemented: `add` of members, `remove` of members (named by a value filter on the path, as Entra ID writes it, or in the operation value), `replace` of `displayName`, and `replace` of the whole member list. Operations outside that set are accepted and change nothing.",
+        "description": "Applies RFC 7644 section 3.5.2 patch operations. What is implemented: `add` of members, `remove` of members (named by a value filter on the path, as Entra ID writes it, or in the operation value), `replace` of `displayName`, and `replace` of the whole member list. Operation names are read without regard to case, so the capitalized `Add` / `Remove` that Entra ID writes are understood. Operations outside that set are accepted and change nothing.",
         "security": [
           {
             "scim_bearer": []
@@ -43687,6 +46000,41 @@
                           "type": "string"
                         }
                       },
+                      "parameters": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "defaultValue": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 4096
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      },
                       "platformUrl": {
                         "type": "string",
                         "format": "uri"
@@ -43698,6 +46046,7 @@
                       "situation",
                       "criteria",
                       "labels",
+                      "parameters",
                       "platformUrl"
                     ]
                   }
@@ -43829,6 +46178,41 @@
                         "type": "string"
                       }
                     },
+                    "parameters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "defaultValue": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 4096
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    },
                     "platformUrl": {
                       "type": "string",
                       "format": "uri"
@@ -43840,6 +46224,7 @@
                     "situation",
                     "criteria",
                     "labels",
+                    "parameters",
                     "platformUrl"
                   ]
                 }
@@ -43960,6 +46345,43 @@
                       "type": "string"
                     },
                     "default": []
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "defaultValue": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 4096
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ]
+                    },
+                    "maxItems": 20,
+                    "description": "The parameters this scenario declares by name, each with an optional description and default. A run supplies values for these names, readable from the scenario's own text as params.NAME."
                   }
                 },
                 "required": [
@@ -44008,6 +46430,41 @@
                         "type": "string"
                       }
                     },
+                    "parameters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "defaultValue": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 4096
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    },
                     "platformUrl": {
                       "type": "string",
                       "format": "uri"
@@ -44019,6 +46476,7 @@
                     "situation",
                     "criteria",
                     "labels",
+                    "parameters",
                     "platformUrl"
                   ]
                 }
@@ -44179,6 +46637,41 @@
                         "type": "string"
                       }
                     },
+                    "parameters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "defaultValue": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 4096
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    },
                     "platformUrl": {
                       "type": "string",
                       "format": "uri"
@@ -44190,6 +46683,7 @@
                     "situation",
                     "criteria",
                     "labels",
+                    "parameters",
                     "platformUrl"
                   ]
                 }
@@ -44338,6 +46832,43 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "defaultValue": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 4096
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ]
+                    },
+                    "maxItems": 20,
+                    "description": "The parameters this scenario declares by name, each with an optional description and default. A run supplies values for these names, readable from the scenario's own text as params.NAME."
                   }
                 }
               }
@@ -47987,6 +50518,24 @@
                 "properties": {
                   "idempotencyKey": {
                     "type": "string"
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 4096
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Constant values applied to every scenario in the run, e.g. a fixture id or a tenant. A value supplied here overrides the scenario's own default for that name."
                   }
                 }
               }
@@ -51423,92 +53972,253 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "url": {
-                          "type": "string"
-                        },
-                        "enabled_events": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "active",
-                            "disabled"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "http"
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "sqs": {
+                              "type": "null"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "secret": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at",
+                            "secret"
                           ]
                         },
-                        "disabled_reason": {
-                          "type": [
-                            "string",
-                            "null"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "sqs"
+                            },
+                            "url": {
+                              "type": "null"
+                            },
+                            "sqs": {
+                              "type": "object",
+                              "properties": {
+                                "queue_url": {
+                                  "type": "string"
+                                },
+                                "region": {
+                                  "type": "string"
+                                },
+                                "account_id": {
+                                  "type": "string"
+                                },
+                                "queue_name": {
+                                  "type": "string"
+                                },
+                                "credential_mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "assume_role",
+                                    "static",
+                                    "ambient"
+                                  ]
+                                },
+                                "role_arn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "external_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "access_key_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "queue_url",
+                                "region",
+                                "account_id",
+                                "queue_name",
+                                "credential_mode",
+                                "role_arn",
+                                "external_id",
+                                "access_key_id"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "secret": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at",
+                            "secret"
                           ]
-                        },
-                        "disabled_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "failing_since": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_success_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_failure_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "max_batch_size": {
-                          "type": "integer"
-                        },
-                        "max_batch_delay_ms": {
-                          "type": "integer"
-                        },
-                        "max_in_flight": {
-                          "type": "integer"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "secret": {
-                          "type": "string"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "url",
-                        "enabled_events",
-                        "status",
-                        "disabled_reason",
-                        "disabled_at",
-                        "failing_since",
-                        "last_success_at",
-                        "last_failure_at",
-                        "max_batch_size",
-                        "max_batch_delay_ms",
-                        "max_in_flight",
-                        "created_at",
-                        "updated_at",
-                        "secret"
                       ]
                     }
                   },
@@ -51758,17 +54468,57 @@
           }
         ],
         "summary": "Create a webhook endpoint",
-        "description": "Create a webhook endpoint. The signing secret is returned ONCE in this response and never again; roll it to get a new one. Send `Idempotency-Key` to make a retry safe: a replay returns the original response including its `secret`, which is the only way to recover a secret whose response was lost in transit.",
+        "description": "Create a webhook endpoint. Name one destination: `url` for `destination_kind: http`, `sqs` for `destination_kind: sqs`. Naming the other kind's field is a 400 that says which field does not belong, rather than a 201 that saved half the body. `destination_kind` may be omitted and then means `http`. The signing secret is returned ONCE in this response and never again; roll it to get a new one. Send `Idempotency-Key` to make a retry safe: a replay returns the original response including its `secret`, which is the only way to recover a secret whose response was lost in transit.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
+                  "destination_kind": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "sqs"
+                    ]
+                  },
                   "url": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "sqs": {
+                    "type": "object",
+                    "properties": {
+                      "queue_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "role_arn": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      "external_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1224
+                      },
+                      "access_key_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "secret_access_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": [
+                      "queue_url"
+                    ]
                   },
                   "enabled_events": {
                     "type": "array",
@@ -51791,7 +54541,6 @@
                   }
                 },
                 "required": [
-                  "url",
                   "enabled_events"
                 ]
               }
@@ -51816,88 +54565,245 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "url": {
-                            "type": "string"
-                          },
-                          "enabled_events": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "active",
-                              "disabled"
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "destination_kind": {
+                                "type": "string",
+                                "const": "http"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "sqs": {
+                                "type": "null"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "enabled_events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "disabled"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "disabled_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "failing_since": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "last_success_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "last_failure_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "max_batch_size": {
+                                "type": "integer"
+                              },
+                              "max_batch_delay_ms": {
+                                "type": "integer"
+                              },
+                              "max_in_flight": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "destination_kind",
+                              "url",
+                              "sqs",
+                              "id",
+                              "enabled_events",
+                              "status",
+                              "disabled_reason",
+                              "disabled_at",
+                              "failing_since",
+                              "last_success_at",
+                              "last_failure_at",
+                              "max_batch_size",
+                              "max_batch_delay_ms",
+                              "max_in_flight",
+                              "created_at",
+                              "updated_at"
                             ]
                           },
-                          "disabled_reason": {
-                            "type": [
-                              "string",
-                              "null"
+                          {
+                            "type": "object",
+                            "properties": {
+                              "destination_kind": {
+                                "type": "string",
+                                "const": "sqs"
+                              },
+                              "url": {
+                                "type": "null"
+                              },
+                              "sqs": {
+                                "type": "object",
+                                "properties": {
+                                  "queue_url": {
+                                    "type": "string"
+                                  },
+                                  "region": {
+                                    "type": "string"
+                                  },
+                                  "account_id": {
+                                    "type": "string"
+                                  },
+                                  "queue_name": {
+                                    "type": "string"
+                                  },
+                                  "credential_mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "assume_role",
+                                      "static",
+                                      "ambient"
+                                    ]
+                                  },
+                                  "role_arn": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "external_id": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "access_key_id": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "queue_url",
+                                  "region",
+                                  "account_id",
+                                  "queue_name",
+                                  "credential_mode",
+                                  "role_arn",
+                                  "external_id",
+                                  "access_key_id"
+                                ]
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "enabled_events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "disabled"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "disabled_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "failing_since": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "last_success_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "last_failure_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "max_batch_size": {
+                                "type": "integer"
+                              },
+                              "max_batch_delay_ms": {
+                                "type": "integer"
+                              },
+                              "max_in_flight": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "destination_kind",
+                              "url",
+                              "sqs",
+                              "id",
+                              "enabled_events",
+                              "status",
+                              "disabled_reason",
+                              "disabled_at",
+                              "failing_since",
+                              "last_success_at",
+                              "last_failure_at",
+                              "max_batch_size",
+                              "max_batch_delay_ms",
+                              "max_in_flight",
+                              "created_at",
+                              "updated_at"
                             ]
-                          },
-                          "disabled_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "failing_since": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "last_success_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "last_failure_at": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "max_batch_size": {
-                            "type": "integer"
-                          },
-                          "max_batch_delay_ms": {
-                            "type": "integer"
-                          },
-                          "max_in_flight": {
-                            "type": "integer"
-                          },
-                          "created_at": {
-                            "type": "string"
-                          },
-                          "updated_at": {
-                            "type": "string"
                           }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "enabled_events",
-                          "status",
-                          "disabled_reason",
-                          "disabled_at",
-                          "failing_since",
-                          "last_success_at",
-                          "last_failure_at",
-                          "max_batch_size",
-                          "max_batch_delay_ms",
-                          "max_in_flight",
-                          "created_at",
-                          "updated_at"
                         ]
                       }
                     }
@@ -52111,88 +55017,245 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "url": {
-                          "type": "string"
-                        },
-                        "enabled_events": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "active",
-                            "disabled"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "http"
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "sqs": {
+                              "type": "null"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at"
                           ]
                         },
-                        "disabled_reason": {
-                          "type": [
-                            "string",
-                            "null"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "sqs"
+                            },
+                            "url": {
+                              "type": "null"
+                            },
+                            "sqs": {
+                              "type": "object",
+                              "properties": {
+                                "queue_url": {
+                                  "type": "string"
+                                },
+                                "region": {
+                                  "type": "string"
+                                },
+                                "account_id": {
+                                  "type": "string"
+                                },
+                                "queue_name": {
+                                  "type": "string"
+                                },
+                                "credential_mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "assume_role",
+                                    "static",
+                                    "ambient"
+                                  ]
+                                },
+                                "role_arn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "external_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "access_key_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "queue_url",
+                                "region",
+                                "account_id",
+                                "queue_name",
+                                "credential_mode",
+                                "role_arn",
+                                "external_id",
+                                "access_key_id"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at"
                           ]
-                        },
-                        "disabled_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "failing_since": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_success_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_failure_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "max_batch_size": {
-                          "type": "integer"
-                        },
-                        "max_batch_delay_ms": {
-                          "type": "integer"
-                        },
-                        "max_in_flight": {
-                          "type": "integer"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "url",
-                        "enabled_events",
-                        "status",
-                        "disabled_reason",
-                        "disabled_at",
-                        "failing_since",
-                        "last_success_at",
-                        "last_failure_at",
-                        "max_batch_size",
-                        "max_batch_delay_ms",
-                        "max_in_flight",
-                        "created_at",
-                        "updated_at"
                       ]
                     }
                   },
@@ -52456,88 +55519,245 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "url": {
-                          "type": "string"
-                        },
-                        "enabled_events": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "active",
-                            "disabled"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "http"
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "sqs": {
+                              "type": "null"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at"
                           ]
                         },
-                        "disabled_reason": {
-                          "type": [
-                            "string",
-                            "null"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "sqs"
+                            },
+                            "url": {
+                              "type": "null"
+                            },
+                            "sqs": {
+                              "type": "object",
+                              "properties": {
+                                "queue_url": {
+                                  "type": "string"
+                                },
+                                "region": {
+                                  "type": "string"
+                                },
+                                "account_id": {
+                                  "type": "string"
+                                },
+                                "queue_name": {
+                                  "type": "string"
+                                },
+                                "credential_mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "assume_role",
+                                    "static",
+                                    "ambient"
+                                  ]
+                                },
+                                "role_arn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "external_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "access_key_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "queue_url",
+                                "region",
+                                "account_id",
+                                "queue_name",
+                                "credential_mode",
+                                "role_arn",
+                                "external_id",
+                                "access_key_id"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at"
                           ]
-                        },
-                        "disabled_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "failing_since": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_success_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_failure_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "max_batch_size": {
-                          "type": "integer"
-                        },
-                        "max_batch_delay_ms": {
-                          "type": "integer"
-                        },
-                        "max_in_flight": {
-                          "type": "integer"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "url",
-                        "enabled_events",
-                        "status",
-                        "disabled_reason",
-                        "disabled_at",
-                        "failing_since",
-                        "last_success_at",
-                        "last_failure_at",
-                        "max_batch_size",
-                        "max_batch_delay_ms",
-                        "max_in_flight",
-                        "created_at",
-                        "updated_at"
                       ]
                     }
                   },
@@ -52784,17 +56004,54 @@
           }
         ],
         "summary": "Update a webhook endpoint",
-        "description": "Update a webhook endpoint's url, event subscriptions, or status (`active` re-enables, `disabled` pauses; re-enabling does not re-send the gap, replay covers it)",
+        "description": "Update a webhook endpoint's address, event subscriptions, or status (`active` re-enables, `disabled` pauses; re-enabling does not re-send the gap, replay covers it). `destination_kind` cannot change: batches already planned against the old transport are in flight, so a move means a new endpoint alongside this one until it has drained.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
+                  "destination_kind": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "sqs"
+                    ]
+                  },
                   "url": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "sqs": {
+                    "type": "object",
+                    "properties": {
+                      "queue_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "role_arn": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      "external_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1224
+                      },
+                      "access_key_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "secret_access_key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    }
                   },
                   "enabled_events": {
                     "type": "array",
@@ -53117,92 +56374,253 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "url": {
-                          "type": "string"
-                        },
-                        "enabled_events": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "active",
-                            "disabled"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "http"
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "sqs": {
+                              "type": "null"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "secret": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at",
+                            "secret"
                           ]
                         },
-                        "disabled_reason": {
-                          "type": [
-                            "string",
-                            "null"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "destination_kind": {
+                              "type": "string",
+                              "const": "sqs"
+                            },
+                            "url": {
+                              "type": "null"
+                            },
+                            "sqs": {
+                              "type": "object",
+                              "properties": {
+                                "queue_url": {
+                                  "type": "string"
+                                },
+                                "region": {
+                                  "type": "string"
+                                },
+                                "account_id": {
+                                  "type": "string"
+                                },
+                                "queue_name": {
+                                  "type": "string"
+                                },
+                                "credential_mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "assume_role",
+                                    "static",
+                                    "ambient"
+                                  ]
+                                },
+                                "role_arn": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "external_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "access_key_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "queue_url",
+                                "region",
+                                "account_id",
+                                "queue_name",
+                                "credential_mode",
+                                "role_arn",
+                                "external_id",
+                                "access_key_id"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "enabled_events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ]
+                            },
+                            "disabled_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "disabled_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failing_since": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_success_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "last_failure_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_batch_size": {
+                              "type": "integer"
+                            },
+                            "max_batch_delay_ms": {
+                              "type": "integer"
+                            },
+                            "max_in_flight": {
+                              "type": "integer"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "secret": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "destination_kind",
+                            "url",
+                            "sqs",
+                            "id",
+                            "enabled_events",
+                            "status",
+                            "disabled_reason",
+                            "disabled_at",
+                            "failing_since",
+                            "last_success_at",
+                            "last_failure_at",
+                            "max_batch_size",
+                            "max_batch_delay_ms",
+                            "max_in_flight",
+                            "created_at",
+                            "updated_at",
+                            "secret"
                           ]
-                        },
-                        "disabled_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "failing_since": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_success_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "last_failure_at": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "max_batch_size": {
-                          "type": "integer"
-                        },
-                        "max_batch_delay_ms": {
-                          "type": "integer"
-                        },
-                        "max_in_flight": {
-                          "type": "integer"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "secret": {
-                          "type": "string"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "url",
-                        "enabled_events",
-                        "status",
-                        "disabled_reason",
-                        "disabled_at",
-                        "failing_since",
-                        "last_success_at",
-                        "last_failure_at",
-                        "max_batch_size",
-                        "max_batch_delay_ms",
-                        "max_in_flight",
-                        "created_at",
-                        "updated_at",
-                        "secret"
                       ]
                     }
                   },

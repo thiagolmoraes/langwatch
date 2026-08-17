@@ -292,6 +292,10 @@ const routes: RouteObject[] = [
         ...page(() => import("./pages/me/configure")),
       },
       {
+        // The devices inventory moved into a tab of /me/configure, and this
+        // path keeps resolving so old links do not dead-end. A page that
+        // renders <Navigate>, not a `loader` redirect: loaders do not run on a
+        // cold load of the SPA, which is exactly how a stale link arrives.
         path: "/me/devices",
         ...page(() => import("./pages/me/devices")),
       },
@@ -300,10 +304,6 @@ const routes: RouteObject[] = [
         ...page(() => import("./pages/me/pull-requests")),
       },
       {
-        // Pre-rename path for the devices inventory, kept resolving so old
-        // links do not dead-end. A page that renders <Navigate>, not a
-        // `loader` redirect: loaders do not run on a cold load of the SPA,
-        // which is exactly how a stale link arrives.
         path: "/me/sessions",
         ...page(() => import("./pages/me/sessions")),
       },
@@ -388,6 +388,17 @@ const routes: RouteObject[] = [
         path: "/:project/agents",
         ...page(() => import("./pages/[project]/agents")),
       },
+
+      // Coding-agent activity, project scope
+      {
+        path: "/:project/sessions",
+        ...page(() => import("./pages/[project]/sessions")),
+      },
+      {
+        path: "/:project/pull-requests",
+        ...page(() => import("./pages/[project]/pull-requests")),
+      },
+
       {
         path: "/:project/automations",
         ...page(() => import("./pages/[project]/automations")),
@@ -453,16 +464,19 @@ const routes: RouteObject[] = [
         ...page(() => import("./pages/[project]/evaluations/[id]/edit/choose")),
       },
       {
-        path: "/:project/messages",
-        ...page(() => import("./pages/[project]/messages")),
-      },
-      {
         path: "/:project/traces",
         ...page(() => import("./pages/[project]/traces")),
       },
       {
         path: "/:project/traces/:trace",
         ...page(() => import("./pages/[project]/traces/[trace]")),
+      },
+
+      // Legacy /messages paths. The legacy Traces page is gone; these are
+      // redirects only, so old bookmarks and notification links keep working.
+      {
+        path: "/:project/messages",
+        ...page(() => import("./pages/[project]/messages/index")),
       },
       {
         path: "/:project/messages/:trace",
@@ -549,6 +563,10 @@ const routes: RouteObject[] = [
         ...page(() => import("./pages/[project]/analytics/users")),
       },
       {
+        path: "/:project/analytics/query",
+        ...page(() => import("./pages/[project]/analytics/query")),
+      },
+      {
         path: "/:project/analytics/custom",
         ...page(() => import("./pages/[project]/analytics/custom/index")),
       },
@@ -596,12 +614,40 @@ const routes: RouteObject[] = [
   { path: "/ops/queues", ...page(() => import("./pages/ops/queues")) },
   { path: "/ops/dejaview", ...page(() => import("./pages/ops/dejaview")) },
   { path: "/ops/scheduler", ...page(() => import("./pages/ops/scheduler")) },
+  {
+    path: "/ops/event-sourcing",
+    ...page(() => import("./pages/ops/event-sourcing/index")),
+  },
+  {
+    path: "/ops/event-sourcing/dead-letters",
+    ...page(() => import("./pages/ops/event-sourcing/dead-letters")),
+  },
+  {
+    path: "/ops/event-sourcing/processes",
+    ...page(() => import("./pages/ops/event-sourcing/processes")),
+  },
+  {
+    path: "/ops/event-sourcing/projections",
+    ...page(() => import("./pages/ops/event-sourcing/projections")),
+  },
+  {
+    path: "/ops/event-sourcing/subscribers",
+    ...page(() => import("./pages/ops/event-sourcing/subscribers")),
+  },
+  {
+    path: "/ops/event-sourcing/schedules",
+    ...page(() => import("./pages/ops/event-sourcing/schedules")),
+  },
   { path: "/ops/blobs", ...page(() => import("./pages/ops/blobs")) },
   {
     path: "/ops/feature-flags",
     ...page(() => import("./pages/ops/feature-flags")),
   },
   { path: "/ops/foundry", ...page(() => import("./pages/ops/foundry")) },
+  {
+    path: "/ops/migrations",
+    ...page(() => import("./pages/ops/migrations")),
+  },
   {
     path: "/ops/projections",
     ...page(() => import("./pages/ops/projections")),

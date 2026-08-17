@@ -100,7 +100,7 @@ vi.mock("~/components/gateway/VirtualKeyUsageSnippet", () => ({
 
 vi.mock("~/utils/api", () => ({
   api: {
-    useContext: () => ({
+    useUtils: () => ({
       virtualKeys: {
         get: { invalidate: async () => undefined },
         list: { invalidate: async () => undefined },
@@ -124,6 +124,11 @@ vi.mock("~/utils/api", () => ({
     modelProvider: {
       listAllForOrganizationForFrontend: {
         useQuery: () => ({ data: { providers: [] }, isLoading: false }),
+      },
+    },
+    routingPolicy: {
+      get: {
+        useQuery: () => ({ data: undefined, isError: false, isLoading: false }),
       },
     },
     gatewayUsage: {

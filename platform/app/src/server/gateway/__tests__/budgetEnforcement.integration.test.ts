@@ -19,6 +19,7 @@ import {
 } from "@ee/governance/process-manager/gatewayDebits.process";
 import { nanoid } from "nanoid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { holdClickHouseSchemaLockForFile } from "~/server/clickhouse/__tests__/holdSchemaLock";
 import {
   replayGooseMigrationUp,
   replayRollupRebuild,
@@ -72,6 +73,11 @@ function servedRequest(options: {
       cache_read_input_tokens: 0,
       cache_creation_input_tokens: 0,
       reasoning_tokens: 0,
+      cache_creation_1h_tokens: 0,
+      input_audio_tokens: 0,
+      output_audio_tokens: 0,
+      input_chars: 0,
+      audio_ms: 0,
     },
     cost_nano_usd: COST_PER_REQUEST * NANO_USD_PER_USD,
     rate_version: "catalog@test",
@@ -81,6 +87,11 @@ function servedRequest(options: {
     occurred_at: Date.now(),
   };
 }
+
+// Held for the whole file. This suite both replays the rollup rebuild and
+// reads the rollup back, and neither the rebuild nor the rollup is scoped to
+// this run's tenant.
+holdClickHouseSchemaLockForFile();
 
 describe("given a blocking budget on traffic the gateway is serving", () => {
   let service: GatewayBudgetService;

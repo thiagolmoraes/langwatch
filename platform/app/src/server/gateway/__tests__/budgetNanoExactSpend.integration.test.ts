@@ -27,13 +27,13 @@ import {
 } from "@ee/governance/process-manager/gatewayDebits.process";
 import { nanoid } from "nanoid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { holdClickHouseSchemaLockForFile } from "~/server/clickhouse/__tests__/holdSchemaLock";
 import { getClickHouseClientForProject } from "~/server/clickhouse/clickhouseClient";
 import { prisma } from "~/server/db";
 import {
   startTestContainers,
   stopTestContainers,
 } from "~/server/event-sourcing/__tests__/integration/testContainers";
-
 import { GatewayBudgetClickHouseRepository } from "../budget.clickhouse.repository";
 import { toBudgetDto } from "../budget.dto";
 import { GatewayBudgetService } from "../budget.service";
@@ -89,6 +89,11 @@ function servedRequest(options: {
       cache_read_input_tokens: 0,
       cache_creation_input_tokens: 0,
       reasoning_tokens: 0,
+      cache_creation_1h_tokens: 0,
+      input_audio_tokens: 0,
+      output_audio_tokens: 0,
+      input_chars: 0,
+      audio_ms: 0,
     },
     cost_nano_usd: options.costNanoUsd,
     rate_version: "catalog@test",
@@ -177,6 +182,11 @@ async function ledgerNanoFor(budgetId: string): Promise<number> {
   const rows = (await result.json()) as Array<{ nano: string }>;
   return Number(rows[0]?.nano ?? "0");
 }
+
+// Held for the whole file. The rollup this suite writes to and reads back is
+// database-wide, so a neighbouring suite rebuilding it drops the materialised
+// view out from under these fixtures.
+holdClickHouseSchemaLockForFile();
 
 beforeAll(async () => {
   await startTestContainers();

@@ -1,7 +1,7 @@
 import { generate } from "@langwatch/ksuid";
 import { createLogger } from "@langwatch/observability";
-import type { Project } from "@prisma/client";
 import { nanoid } from "nanoid";
+import type { Project } from "~/generated/prisma/client";
 import { createStoredObjectsService } from "~/server/stored-objects/stored-objects-factory";
 import { generateApiKey } from "~/server/utils/apiKeyGenerator";
 import { KSUID_RESOURCES } from "~/utils/constants";
@@ -136,6 +136,22 @@ export function personalWorkspaceCreateViolation(
   return isDestinationTeamPersonal
     ? PERSONAL_TEAM_PROJECT_CREATE_REFUSAL
     : null;
+}
+
+/**
+ * How stale a coding-agent recency column has to be before it is rewritten.
+ *
+ * The columns are read against a window of days, so the moment inside that
+ * window is not information anyone acts on. An hour keeps the busiest project
+ * to twenty-four writes a day per column while still moving the value long
+ * before the window closes on it.
+ */
+export const CODING_AGENT_ACTIVITY_TOUCH_MS = 60 * 60 * 1000;
+
+/** What a caller recording coding-agent activity knows: the project, and when. */
+export interface TouchCodingAgentActivityParams {
+  projectId: string;
+  at: Date;
 }
 
 export interface CreateProjectParams {
@@ -347,6 +363,39 @@ export class ProjectService {
 
   async updateMetadata(input: UpdateProjectMetadataInput): Promise<void> {
     return this.repo.updateMetadata(input);
+  }
+
+  /**
+   * Record that a coding-agent session was folded for this project.
+   *
+   * Level-triggered and rate limited by {@link CODING_AGENT_ACTIVITY_TOUCH_MS}:
+   * the only reader is a recency window measured in days, so a project that
+   * folds a thousand sessions in an hour is worth exactly one write.
+   */
+  async touchCodingAgentSessionSeen({
+    projectId,
+    at,
+  }: TouchCodingAgentActivityParams): Promise<void> {
+    return this.repo.touchCodingAgentSessionSeen({
+      projectId,
+      at,
+      staleBefore: new Date(at.getTime() - CODING_AGENT_ACTIVITY_TOUCH_MS),
+    });
+  }
+
+  /**
+   * Record that a pull request was mapped for a branch a session in this
+   * project ran on. Same rate limit, its own column.
+   */
+  async touchCodingAgentPullRequestSeen({
+    projectId,
+    at,
+  }: TouchCodingAgentActivityParams): Promise<void> {
+    return this.repo.touchCodingAgentPullRequestSeen({
+      projectId,
+      at,
+      staleBefore: new Date(at.getTime() - CODING_AGENT_ACTIVITY_TOUCH_MS),
+    });
   }
 
   async searchByQuery(params: {

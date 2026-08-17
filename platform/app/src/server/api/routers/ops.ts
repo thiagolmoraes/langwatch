@@ -3,12 +3,13 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { checkOpsPermission } from "~/server/api/rbac";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { getApp } from "~/server/app-layer/app";
-import { DASHBOARD_EVENT } from "~/server/app-layer/ops/metrics-collector";
+import { getApp, tryGetApp } from "~/server/app-layer/app";
+import { DASHBOARD_EVENT } from "~/server/app-layer/ops/snapshot/snapshot-reader";
 import {
   type DashboardData,
   OPS_BLOB_SORTS,
 } from "~/server/app-layer/ops/types";
+import { systemMigrationsService } from "~/server/app-layer/system-migrations/runtime";
 import {
   resolveHotDays,
   TABLE_TTL_CONFIG,
@@ -30,7 +31,7 @@ import {
   resolveEffectiveForListing,
 } from "~/server/featureFlag/rules";
 import { AnomalyStateStore } from "~/server/observability/anomalyState";
-import { connection } from "~/server/redis";
+import { grafanaConfigFromEnv } from "~/utils/grafanaLinks";
 
 const opsViewPermission = checkOpsPermission({ permission: "ops:view" });
 
@@ -114,8 +115,8 @@ export const opsRouter = createTRPCRouter({
 
   getDashboardSnapshot: protectedProcedure.use(opsViewPermission).query(() => {
     const ops = getApp().ops;
-    if (!ops?.metricsCollector) return null;
-    return ops.metricsCollector.getDashboardData();
+    if (!ops?.snapshotReader) return null;
+    return ops.snapshotReader.getDashboardData();
   }),
 
   /**
@@ -125,30 +126,63 @@ export const opsRouter = createTRPCRouter({
    * always-on polling; reach for `getDashboardSnapshot` only on the
    * ops route itself.
    */
-  getBadgeCounts: protectedProcedure.use(opsViewPermission).query(() => {
-    const ops = getApp().ops;
-    if (!ops?.metricsCollector) {
-      return { blockedCount: 0, dlqCount: 0 };
-    }
-    return ops.metricsCollector.getBadgeCounts();
-  }),
+  getBadgeCounts: protectedProcedure.use(opsViewPermission).query(
+    (): {
+      blockedCount: number;
+      dlqCount: number;
+      computedAt: Date | null;
+    } => {
+      const ops = getApp().ops;
+      if (!ops?.snapshotReader) {
+        // Same shape as the served path so no caller has to branch on whether
+        // the field exists — but `computedAt: null`, because these zeroes are
+        // "we cannot say" rather than "nothing is wrong". Stamping the current
+        // time would present unavailable data as a fresh all-clear.
+        return { blockedCount: 0, dlqCount: 0, computedAt: null };
+      }
+      return ops.snapshotReader.getBadgeCounts();
+    },
+  ),
 
   dashboardStream: protectedProcedure
     .use(opsViewPermission)
     .subscription(async function* (opts) {
-      const collector = getApp().ops?.metricsCollector;
-      if (!collector) return;
+      const reader = getApp().ops?.snapshotReader;
+      if (!reader) return;
 
       // Yield the current snapshot immediately so the client doesn't have
-      // to wait for the next broadcast tick before rendering.
-      yield collector.getDashboardData();
+      // to wait for the next broadcast tick before rendering. Null until a
+      // readable snapshot exists, which the page renders as its loading state.
+      const current = reader.getDashboardData();
+      if (current) yield current;
 
-      for await (const [data] of on(collector.getEmitter(), DASHBOARD_EVENT, {
-        // @ts-expect-error - signal is not typed
+      for await (const [data] of on(reader.getEmitter(), DASHBOARD_EVENT, {
         signal: opts.signal,
       })) {
         yield data as DashboardData;
       }
+    }),
+
+  /**
+   * One parked tenant's groups, read live rather than from the snapshot.
+   *
+   * A parking storm can hold hundreds of thousands of groups; carrying those
+   * in a snapshot every pod reads would recreate the size problem ADR-090
+   * removes. The tenant ROWS ship in the snapshot, their members do not.
+   */
+  listParkedGroups: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        queueName: z.string(),
+        tenantId: z.string(),
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(200).default(50),
+      }),
+    )
+    .query(async ({ input }) => {
+      const ops = requireOps();
+      return ops.queues.getParkedGroups(input);
     }),
 
   listQueues: protectedProcedure.use(opsViewPermission).query(async () => {
@@ -162,6 +196,77 @@ export const opsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const ops = requireOps();
       return ops.scheduler.listScheduledJobs({ limit: input.limit });
+    }),
+
+  /**
+   * Only the switched-off schedules, for the dashboard's "Switched off" panel.
+   * Its own read because `listScheduledJobs` sorts active first, so a client
+   * filtering that page would miss every paused row on a large fleet.
+   */
+  listPausedSchedules: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(200).default(50),
+      }),
+    )
+    .query(async ({ input }) => {
+      const ops = requireOps();
+      return ops.scheduler.listPausedSchedules({ limit: input.limit });
+    }),
+
+  /** Recent scheduler operator actions, so the page explains its own history. */
+  listSchedulerActions: protectedProcedure
+    .use(opsViewPermission)
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(20) }))
+    .query(async ({ input }) => {
+      const ops = requireOps();
+      return ops.scheduler.listRecentActions({ limit: input.limit });
+    }),
+
+  /**
+   * Pause or resume a schedule (ADR-091). Never touches an in-flight slot —
+   * the confirmation copy says so, because a pause that silently killed a live
+   * run would be a much larger promise than the one being made.
+   */
+  setScheduleActive: protectedProcedure
+    .use(opsManagePermission)
+    .input(z.object({ scheduleId: z.string(), active: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const ops = requireOps();
+      return ops.scheduler.setActive({
+        scheduleId: input.scheduleId,
+        active: input.active,
+        actorUserId: ctx.session.user.id,
+      });
+    }),
+
+  /** Release a slot whose worker stopped responding, so it can be claimed again. */
+  clearScheduleSlot: protectedProcedure
+    .use(opsManagePermission)
+    .input(z.object({ scheduleId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const ops = requireOps();
+      return ops.scheduler.clearStuckSlot({
+        scheduleId: input.scheduleId,
+        actorUserId: ctx.session.user.id,
+      });
+    }),
+
+  /**
+   * Make a schedule due immediately. The loop claims and runs it through the
+   * ordinary path, so this inherits its exactly-once lease rather than
+   * bypassing it.
+   */
+  runScheduleNow: protectedProcedure
+    .use(opsManagePermission)
+    .input(z.object({ scheduleId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const ops = requireOps();
+      return ops.scheduler.runNow({
+        scheduleId: input.scheduleId,
+        actorUserId: ctx.session.user.id,
+      });
     }),
 
   listGroups: protectedProcedure
@@ -197,6 +302,20 @@ export const opsRouter = createTRPCRouter({
       }
       return group;
     }),
+
+  /**
+   * The Grafana deep-link config, so ops surfaces can build per-row Explore
+   * links client-side with the pure builders in `~/utils/grafanaLinks`. Null
+   * when no Grafana is configured — callers render no link rather than a dead
+   * one. Gated like every other ops read; Grafana itself is access-controlled,
+   * so the base URL is not a secret to an operator.
+   */
+  getGrafanaLinkConfig: protectedProcedure.use(opsViewPermission).query(() => {
+    const { baseUrl, tempoDatasourceUid, lokiDatasourceUid } =
+      grafanaConfigFromEnv();
+    if (!baseUrl) return null;
+    return { baseUrl, tempoDatasourceUid, lokiDatasourceUid };
+  }),
 
   getBlockedSummary: protectedProcedure
     .use(opsViewPermission)
@@ -401,6 +520,171 @@ export const opsRouter = createTRPCRouter({
         processKey: input.processKey,
         messageKeyPrefix: input.messageKeyPrefix,
         requestedBy: ctx.session.user.id,
+      });
+    }),
+
+  // ── Process-manager fleet (specs/ops/process-manager-visibility.feature) ──
+
+  /** One row per process name: registry identity + live trouble counts. */
+  listProcessFleet: protectedProcedure.use(opsViewPermission).query(() => {
+    return requireOps().managerExplorer.getFleetSummary();
+  }),
+
+  /**
+   * Retired messages across every process. Answers "what has permanently
+   * stopped", which `getProcessOutbox` could not: that one needs a full
+   * process ref, so it can only be reached by an operator who already knows
+   * where the failure is.
+   */
+  listDeadLetters: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        /** Omit for every process. */
+        processName: z.string().min(1).max(200).optional(),
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(25),
+      }),
+    )
+    .query(({ input }) => {
+      return requireOps().managerExplorer.getDeadLetters(input);
+    }),
+
+  /** Dead totals per process, for the navigation badge and dashboard card. */
+  listDeadLetterCounts: protectedProcedure.use(opsViewPermission).query(() => {
+    return requireOps().managerExplorer.getDeadLetterCounts();
+  }),
+
+  listProcessInstances: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        /** Omit to list instances across every process manager. */
+        processName: z.string().min(1).max(200).optional(),
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(25),
+        search: z.string().max(500).optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      return requireOps().managerExplorer.getInstances(input);
+    }),
+
+  /** The soonest-due process wakes, for the dashboard's timed-work table. */
+  listUpcomingWakes: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(200).default(20),
+      }),
+    )
+    .query(async ({ input }) => {
+      return requireOps().managerExplorer.getUpcomingWakes(input);
+    }),
+
+  getProcessInstance: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        processName: z.string().min(1).max(200),
+        projectId: z.string().min(1).max(200),
+        processKey: z.string().min(1).max(500),
+      }),
+    )
+    .query(async ({ input }) => {
+      return requireOps().managerExplorer.getInstanceDetail({ ref: input });
+    }),
+
+  listProcessOutbox: protectedProcedure
+    .use(opsViewPermission)
+    .input(
+      z.object({
+        processName: z.string().min(1).max(200),
+        projectId: z.string().min(1).max(200),
+        processKey: z.string().min(1).max(500),
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(20),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { page, pageSize, ...ref } = input;
+      return requireOps().managerExplorer.getOutbox({ ref, page, pageSize });
+    }),
+
+  listProcessActions: protectedProcedure
+    .use(opsViewPermission)
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(20) }))
+    .query(async ({ input }) => {
+      return requireOps().managerExplorer.listRecentActions(input);
+    }),
+
+  processWakeNow: protectedProcedure
+    .use(opsManagePermission)
+    .input(
+      z.object({
+        processName: z.string().min(1).max(200),
+        projectId: z.string().min(1).max(200),
+        processKey: z.string().min(1).max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return requireOps().managerExplorer.wakeNow({
+        ref: input,
+        actorUserId: ctx.session.user.id,
+      });
+    }),
+
+  processRedriveDeadInstance: protectedProcedure
+    .use(opsManagePermission)
+    .input(
+      z.object({
+        processName: z.string().min(1).max(200),
+        projectId: z.string().min(1).max(200),
+        processKey: z.string().min(1).max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return requireOps().managerExplorer.redriveDeadInstance({
+        ref: input,
+        actorUserId: ctx.session.user.id,
+      });
+    }),
+
+  processRedriveDeadMessage: protectedProcedure
+    .use(opsManagePermission)
+    .input(
+      z.object({
+        processName: z.string().min(1).max(200),
+        projectId: z.string().min(1).max(200),
+        processKey: z.string().min(1).max(500),
+        messageId: z.string().min(1).max(64),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { messageId, ...ref } = input;
+      return requireOps().managerExplorer.redriveDeadMessage({
+        ref,
+        messageId,
+        actorUserId: ctx.session.user.id,
+      });
+    }),
+
+  processReleaseLapsedLease: protectedProcedure
+    .use(opsManagePermission)
+    .input(
+      z.object({
+        processName: z.string().min(1).max(200),
+        projectId: z.string().min(1).max(200),
+        processKey: z.string().min(1).max(500),
+        messageId: z.string().min(1).max(64),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { messageId, ...ref } = input;
+      return requireOps().managerExplorer.releaseLapsedLease({
+        ref,
+        messageId,
+        actorUserId: ctx.session.user.id,
       });
     }),
 
@@ -728,6 +1012,7 @@ export const opsRouter = createTRPCRouter({
    * fingerprint loops). Sorted with hard-tier first.
    */
   listAnomalies: protectedProcedure.use(opsViewPermission).query(async () => {
+    const connection = tryGetApp()?.redis ?? null;
     if (!connection) return { anomalies: [] };
     const store = new AnomalyStateStore(connection);
     const anomalies = await store.list();
@@ -752,6 +1037,7 @@ export const opsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
+      const connection = tryGetApp()?.redis ?? null;
       if (!connection) return { dismissed: false };
       const store = new AnomalyStateStore(connection);
       await store.clear(input.tenantId, input.kind);
@@ -1043,5 +1329,29 @@ export const opsRouter = createTRPCRouter({
         // carrying PII into the log stream.
         requestedBy: ctx.session.user.id,
       });
+    }),
+
+  /**
+   * The in-place system migrations (@langwatch/system-migrations), per
+   * migration: status rollup plus the tenants needing attention - held
+   * (`migrated`, parity disagreements in the report) and `parked` (errored,
+   * retried next pass). Finalized tenants are a count, not a listing.
+   */
+  listSystemMigrations: protectedProcedure
+    .use(opsViewPermission)
+    .query(() => systemMigrationsService.getOverview()),
+
+  /**
+   * Kick a migration pass now instead of waiting for the next worker boot -
+   * the lever for widening a cloud cohort or re-verifying held tenants
+   * after remediation. Fire-and-forget: the fleet-wide lease already
+   * guarantees a single driver, so the worst case for a double click is a
+   * pass that stands down immediately.
+   */
+  runSystemMigrationPass: protectedProcedure
+    .use(opsManagePermission)
+    .mutation(() => {
+      systemMigrationsService.startPass();
+      return { started: true };
     }),
 });

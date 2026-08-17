@@ -1,9 +1,11 @@
 import { nanoid } from "nanoid";
 import type { ProcessRef } from "../processManager.types";
 import type {
+  AppendIntentsResult,
   CommitResult,
   DueWake,
   LeasedOutboxMessageRecord,
+  NewOutboxMessage,
   OutboxMessageIdentity,
   OutboxMessageRecord,
   PersistedProcessInstance,
@@ -116,36 +118,13 @@ export class InMemoryProcessStore implements ProcessStore {
       updatedAt: commit.now,
     });
 
-    const insertedMessageKeys: string[] = [];
-    const duplicateMessageKeys: string[] = [];
-    for (const message of commit.messages) {
-      const identity = messageKeyOf({
-        processName: ref.processName,
-        projectId: ref.projectId,
-        messageKey: message.messageKey,
-      });
-      if (this.messages.has(identity)) {
-        duplicateMessageKeys.push(message.messageKey);
-        continue;
-      }
-      this.messages.set(identity, {
-        ...message,
-        processName: ref.processName,
-        projectId: ref.projectId,
-        processKey: ref.processKey,
-        tenantId: commit.tenantId,
-        sourceEventId,
-        status: "pending",
-        attempts: 0,
-        nextAttemptAt: commit.now,
-        leaseToken: null,
-        createdAt: commit.now,
-        leasedUntil: 0,
-        dispatchedAt: null,
-        updatedAt: commit.now,
-      });
-      insertedMessageKeys.push(message.messageKey);
-    }
+    const { insertedMessageKeys, duplicateMessageKeys } = this.insertMessages({
+      ref,
+      tenantId: commit.tenantId,
+      sourceEventId,
+      messages: commit.messages,
+      now: commit.now,
+    });
 
     if (sourceEventId !== null) {
       this.inbox.set(inboxKey({ ref, sourceEventId }), commit.now);
@@ -157,6 +136,68 @@ export class InMemoryProcessStore implements ProcessStore {
       insertedMessageKeys,
       duplicateMessageKeys,
     };
+  }
+
+  /**
+   * The transient path: intents only, no instance and no inbox marker. The
+   * durable adapter drops its transaction here too; this one is atomic per
+   * call regardless, so the shared insert is the whole implementation.
+   */
+  async appendIntents(params: {
+    ref: ProcessRef;
+    tenantId: string;
+    userId?: string;
+    sourceEventId: string | null;
+    messages: NewOutboxMessage[];
+    now: number;
+  }): Promise<AppendIntentsResult> {
+    return this.insertMessages(params);
+  }
+
+  /** Idempotent outbox insert by (processName, projectId, messageKey). */
+  private insertMessages(params: {
+    ref: ProcessRef;
+    tenantId: string;
+    userId?: string;
+    sourceEventId: string | null;
+    messages: NewOutboxMessage[];
+    now: number;
+  }): AppendIntentsResult {
+    const { ref } = params;
+    const insertedMessageKeys: string[] = [];
+    const duplicateMessageKeys: string[] = [];
+    for (const message of params.messages) {
+      const identity = messageKeyOf({
+        processName: ref.processName,
+        projectId: ref.projectId,
+        messageKey: message.messageKey,
+      });
+      if (this.messages.has(identity)) {
+        duplicateMessageKeys.push(message.messageKey);
+        continue;
+      }
+      this.messages.set(identity, {
+        ...message,
+        ...((message.userId ?? params.userId)
+          ? { userId: message.userId ?? params.userId }
+          : {}),
+        processName: ref.processName,
+        projectId: ref.projectId,
+        processKey: ref.processKey,
+        tenantId: params.tenantId,
+        sourceEventId: params.sourceEventId,
+        status: "pending",
+        attempts: 0,
+        nextAttemptAt: params.now,
+        leaseToken: null,
+        createdAt: params.now,
+        leasedUntil: 0,
+        dispatchedAt: null,
+        updatedAt: params.now,
+      });
+      insertedMessageKeys.push(message.messageKey);
+    }
+    return { insertedMessageKeys, duplicateMessageKeys };
   }
 
   async findMessagesByRef(params: {
@@ -189,6 +230,7 @@ export class InMemoryProcessStore implements ProcessStore {
       if (message.leasedUntil > params.now) continue;
       message.leasedUntil = params.now + params.leaseDurationMs;
       message.leaseToken = nanoid();
+      message.attempts += 1;
       leased.push({ ...message, leaseToken: message.leaseToken });
     }
     return leased;
@@ -198,15 +240,17 @@ export class InMemoryProcessStore implements ProcessStore {
     identity: OutboxMessageIdentity;
     leaseToken: string;
     now: number;
-  }): Promise<void> {
+  }): Promise<{ applied: boolean }> {
     const message = this.messages.get(messageKeyOf(params.identity));
-    if (!message || message.leaseToken !== params.leaseToken) return;
+    if (!message || message.leaseToken !== params.leaseToken) {
+      return { applied: false };
+    }
     message.status = "dispatched";
-    message.attempts += 1;
     message.leasedUntil = 0;
     message.leaseToken = null;
     message.dispatchedAt = params.now;
     message.updatedAt = params.now;
+    return { applied: true };
   }
 
   async markFailed(params: {
@@ -215,15 +259,34 @@ export class InMemoryProcessStore implements ProcessStore {
     now: number;
     nextAttemptAt: number;
     dead: boolean;
-  }): Promise<void> {
+  }): Promise<{ applied: boolean }> {
     const message = this.messages.get(messageKeyOf(params.identity));
-    if (!message || message.leaseToken !== params.leaseToken) return;
-    message.attempts += 1;
+    if (!message || message.leaseToken !== params.leaseToken) {
+      return { applied: false };
+    }
     message.status = params.dead ? "dead" : "pending";
     message.nextAttemptAt = params.nextAttemptAt;
     message.leasedUntil = 0;
     message.leaseToken = null;
     message.updatedAt = params.now;
+    return { applied: true };
+  }
+
+  async releaseLease(params: {
+    identity: OutboxMessageIdentity;
+    leaseToken: string;
+    now: number;
+  }): Promise<{ applied: boolean }> {
+    const message = this.messages.get(messageKeyOf(params.identity));
+    if (!message || message.leaseToken !== params.leaseToken) {
+      return { applied: false };
+    }
+    // Hand back the attempt the lease charged: the delivery never started.
+    message.attempts -= 1;
+    message.leasedUntil = 0;
+    message.leaseToken = null;
+    message.updatedAt = params.now;
+    return { applied: true };
   }
 
   async findDueWakes(params: {

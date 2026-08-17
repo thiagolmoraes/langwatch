@@ -83,6 +83,10 @@ const DEFAULT_TEST_ROOTS: string[] = [
   // browser-driven @e2e scenario can bind — without this root every such
   // scenario would be stuck on @unimplemented.
   "platform/app/e2e",
+  // CI guards run under `node --test` from the workflow that uses them, not
+  // vitest, and their tests live beside them. Without this root, a scenario
+  // describing what a guard refuses could only ever be @unimplemented.
+  ".github/scripts",
 ];
 
 /**
@@ -156,6 +160,12 @@ const DEFAULT_GO_TEST_ROOTS: string[] = [
   // asserts it, so scenarios under specs/ci/ can only bind from this root.
   // Without it those feature files report "all bound" while binding nothing.
   "tools/ciguard",
+  // The README link checker, for the same reason: specs/ci/readme-link-check.feature
+  // describes what CI asserts about the README, and only these Go tests assert it.
+  "tools/linkcheck",
+  // The CLI half of the same tool: the verdict-to-exit-code step is the part
+  // CI gates on, so the "check fails" / "check passes" scenarios bind here.
+  "cmd/linkcheck",
 ];
 
 /**
@@ -168,7 +178,6 @@ const DEFAULT_GO_TEST_ROOTS: string[] = [
  */
 const DEFAULT_PYTHON_TEST_ROOTS: string[] = [
   "services/langevals",
-  "langwatch_server",
   "sdks/python",
 ];
 
@@ -249,7 +258,6 @@ const LEGACY_UNBOUND: string[] = [
 const LEGACY_INERT: string[] = [
   "specs/agents/create-workflow-agent.feature",
   "specs/agents/workflow-agent-editor.feature",
-  "specs/ai-gateway/advanced-routing.feature",
   "specs/ai-gateway/azure-endpoint-from-api-base.feature",
   "specs/ai-gateway/budgets-principal-cascade.feature",
   "specs/ai-gateway/cache-control-rules.feature",
@@ -260,12 +268,10 @@ const LEGACY_INERT: string[] = [
   "specs/ai-gateway/epic.feature",
   "specs/ai-gateway/governance/activity-monitor.feature",
   "specs/ai-gateway/governance/admin-oversight.feature",
-  "specs/ai-gateway/governance/admin-routing-policies.feature",
   "specs/ai-gateway/governance/anomaly-detection.feature",
   "specs/ai-gateway/governance/anomaly-rules.feature",
   "specs/ai-gateway/governance/architecture-invariants.feature",
   "specs/ai-gateway/governance/birds-eye-dashboard-v2.feature",
-  "specs/ai-gateway/governance/budget-exceeded.feature",
   "specs/ai-gateway/governance/c3-alert-dispatch.feature",
   "specs/ai-gateway/governance/cli-402-license-gate.feature",
   "specs/ai-gateway/governance/cli-deep-links.feature",
@@ -278,7 +284,6 @@ const LEGACY_INERT: string[] = [
   "specs/ai-gateway/governance/governance-api-cli-mcp-coverage.feature",
   "specs/ai-gateway/governance/governance-home-routing.feature",
   "specs/ai-gateway/governance/guardrails-project-scope.feature",
-  "specs/ai-gateway/governance/ingest-api-key-lifecycle.feature",
   "specs/ai-gateway/governance/ingestion-attribution.feature",
   "specs/ai-gateway/governance/ingestion-sources.feature",
   "specs/ai-gateway/governance/me-usage-rest-api.feature",
@@ -305,25 +310,19 @@ const LEGACY_INERT: string[] = [
   "specs/ai-gateway/guardrails.feature",
   "specs/ai-gateway/health-checks.feature",
   "specs/ai-gateway/license-gate-governance.feature",
-  "specs/ai-gateway/model-disambiguation.feature",
-  "specs/ai-gateway/model-provider-scoping.feature",
   "specs/ai-gateway/payload-capture.feature",
-  "specs/ai-gateway/policy-rules.feature",
   "specs/ai-gateway/prometheus-metrics.feature",
   "specs/ai-gateway/rate-limits.feature",
   "specs/ai-gateway/rbac-legacy-admin-fallback.feature",
   "specs/ai-gateway/self-hosting/gateway-finds-its-control-plane.feature",
   "specs/ai-gateway/self-hosting/personal-keys-deployment.feature",
   "specs/ai-gateway/semantic-caching.feature",
-  "specs/ai-gateway/span-shape.feature",
   "specs/ai-gateway/trace-propagation.feature",
   "specs/ai-gateway/wrapper-e2e/claude.feature",
   "specs/ai-gateway/wrapper-e2e/codex.feature",
   "specs/ai-gateway/wrapper-e2e/cursor.feature",
   "specs/ai-gateway/wrapper-e2e/gemini.feature",
   "specs/ai-gateway/wrapper-e2e/opencode.feature",
-  "specs/ai-governance/cli-wrappers/cli-mints-ingest-key.feature",
-  "specs/ai-governance/cli-wrappers/latest-login-wins.feature",
   "specs/ai-governance/cli-wrappers/logout.feature",
   "specs/ai-governance/cli-wrappers/request-increase.feature",
   "specs/ai-governance/cli-wrappers/wrap-login-routing.feature",
@@ -358,6 +357,10 @@ const LEGACY_INERT: string[] = [
   "specs/auth/sso-wrong-provider-recovery.feature",
   "specs/automations/dispatch-timing.feature",
   "specs/automations/notification-templates.feature",
+  // ADR-093's design contract, every scenario @unimplemented on purpose: the
+  // ADR ships ahead of the implementation, and the reference PR (R0) binds
+  // these as it lands. Remove this entry with the first binding.
+  "specs/automations/source-merge.feature",
   "specs/automations/spam-prevention.feature",
   "specs/automations/webhook-http-action.feature",
   "specs/batch-evaluation-results/experiment-cost-folding.feature",
@@ -397,9 +400,7 @@ const LEGACY_INERT: string[] = [
   "specs/event-sourcing/oversized-attribute-value-preview.feature",
   "specs/event-sourcing/payload-envelope.feature",
   "specs/event-sourcing/pipeline-model.feature",
-  "specs/event-sourcing/poison-group-park-guard.feature",
   "specs/event-sourcing/process-roles.feature",
-  "specs/event-sourcing/reactors.feature",
   "specs/event-sourcing/redis-fold-cache.feature",
   "specs/event-sourcing/work-conserving-fair-dispatch.feature",
   "specs/experiments-v3/autosave-status.feature",
@@ -414,7 +415,6 @@ const LEGACY_INERT: string[] = [
   "specs/experiments-v3/runner-configuration.feature",
   "specs/experiments-v3/table-display.feature",
   "specs/experiments-v3/undo-redo.feature",
-  "specs/experiments/comparison.feature",
   "specs/features/agent-cli.feature",
   "specs/features/analytics-cli.feature",
   "specs/features/annotation-cli.feature",
@@ -459,7 +459,6 @@ const LEGACY_INERT: string[] = [
   "specs/langy/langy-composer-feedback-and-cards.feature",
   "specs/langy/langy-context-awareness.feature",
   "specs/langy/langy-conversation-title.feature",
-  "specs/langy/langy-deploy-hardening.feature",
   "specs/langy/langy-derived-cards.feature",
   "specs/langy/langy-dogfood-scenarios.feature",
   "specs/langy/langy-empty-state-suggestions.feature",
@@ -512,7 +511,6 @@ const LEGACY_INERT: string[] = [
   "specs/monitors/workflow-evaluator-mappings.feature",
   "specs/navigation/child-drawer-nesting.feature",
   "specs/navigation/home-navigation.feature",
-  "specs/navigation/shared-section-navigation-layout.feature",
   "specs/nlp-go/dataset-block.feature",
   "specs/nlp-go/http-block.feature",
   "specs/nlp-go/proxy.feature",
@@ -549,7 +547,6 @@ const LEGACY_INERT: string[] = [
   "specs/python-sdk/experiment-print-summary.feature",
   "specs/rbac/fetch-org-role-permission-resolution.feature",
   "specs/scenarios/ai-create-modal.feature",
-  "specs/scenarios/event-driven-execution-prep.feature",
   "specs/scenarios/internal-scenario-namespace.feature",
   "specs/scenarios/internal-set-namespace.feature",
   "specs/scenarios/provider-setup-link-from-warnings.feature",
@@ -562,7 +559,6 @@ const LEGACY_INERT: string[] = [
   "specs/scenarios/scenario-editor.feature",
   "specs/scenarios/scenario-execution.feature",
   "specs/scenarios/scenario-library.feature",
-  "specs/scenarios/stalled-scenario-runs.feature",
   "specs/secrets/secrets-manager.feature",
   // Helm chart behaviour, verified by charts/langwatch/tests/e2e-overlays.sh.
   // The checker now scans that directory (DEFAULT_SHELL_TEST_ROOTS), so these

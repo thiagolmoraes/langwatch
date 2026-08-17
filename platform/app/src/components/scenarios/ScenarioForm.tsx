@@ -9,6 +9,7 @@ import {
   useForm,
 } from "react-hook-form";
 import { z } from "zod";
+import { scenarioParameterDefinitionsSchema } from "~/server/scenarios/parameters";
 import {
   DEFAULT_SCENARIO_MAX_TURNS,
   MAX_SCENARIO_MAX_TURNS,
@@ -19,6 +20,9 @@ import { SectionHeader } from "./ui/SectionHeader";
 /**
  * Zod schema for scenario form validation.
  * Colocated with the form component it validates.
+ *
+ * Parameters reuse the server's schema rather than restating its caps, so the
+ * form rejects exactly what the save would.
  */
 export const scenarioFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -36,6 +40,7 @@ export const scenarioFormSchema = z.object({
       `Maximum turns must be between 1 and ${MAX_SCENARIO_MAX_TURNS}`,
     )
     .nullable(),
+  parameters: scenarioParameterDefinitionsSchema,
 });
 
 export type ScenarioFormData = z.infer<typeof scenarioFormSchema>;
@@ -50,7 +55,7 @@ export interface ScenarioInitialData {
 
 type ScenarioFormProps = {
   defaultValues?: Partial<ScenarioFormData>;
-  formRef?: (form: UseFormReturn<ScenarioFormData>) => void;
+  formRef?: (form: UseFormReturn<ScenarioFormData> | null) => void;
 };
 
 /**
@@ -66,6 +71,7 @@ export function ScenarioForm({ defaultValues, formRef }: ScenarioFormProps) {
       criteria: [],
       labels: [],
       maxTurns: null,
+      parameters: [],
       ...defaultValues,
     },
     resolver: zodResolver(scenarioFormSchema),
@@ -78,37 +84,15 @@ export function ScenarioForm({ defaultValues, formRef }: ScenarioFormProps) {
     formState: { errors },
   } = form;
 
-  // Expose form to parent
+  // Expose form to parent, and take it back on unmount. Whoever holds the
+  // reference renders against it, so a reference that outlives this form
+  // points them at a form nobody is typing in.
   useEffect(() => {
     formRef?.(form);
+    return () => formRef?.(null);
   }, [form, formRef]);
 
-  // Reset form when defaultValues change (using ref to track previous serialized values)
-  const prevDefaultsRef = useRef<string | null>(null);
-  useEffect(() => {
-    const currentDefaults = defaultValues
-      ? JSON.stringify([
-          defaultValues.name,
-          defaultValues.situation,
-          defaultValues.criteria,
-          defaultValues.labels,
-          defaultValues.maxTurns,
-        ])
-      : null;
-    if (currentDefaults !== prevDefaultsRef.current) {
-      prevDefaultsRef.current = currentDefaults;
-      if (defaultValues) {
-        reset({
-          name: "",
-          situation: "",
-          criteria: [],
-          labels: [],
-          maxTurns: null,
-          ...defaultValues,
-        });
-      }
-    }
-  }, [defaultValues, reset]);
+  useResetOnDefaultsChange({ reset, defaultValues });
 
   return (
     <VStack align="stretch" gap={6}>
@@ -214,4 +198,47 @@ function MaxTurnsField({
       </Field.Root>
     </VStack>
   );
+}
+
+/**
+ * Re-seeds the form when the scenario being edited changes.
+ *
+ * The previous defaults are tracked by value rather than by object identity: a
+ * parent that rebuilds the object on every render would otherwise reset the
+ * form under the user mid-edit.
+ */
+function useResetOnDefaultsChange({
+  reset,
+  defaultValues,
+}: {
+  reset: UseFormReturn<ScenarioFormData>["reset"];
+  defaultValues?: Partial<ScenarioFormData>;
+}) {
+  const prevDefaultsRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentDefaults = defaultValues
+      ? JSON.stringify([
+          defaultValues.name,
+          defaultValues.situation,
+          defaultValues.criteria,
+          defaultValues.labels,
+          defaultValues.maxTurns,
+          defaultValues.parameters,
+        ])
+      : null;
+    if (currentDefaults !== prevDefaultsRef.current) {
+      prevDefaultsRef.current = currentDefaults;
+      if (defaultValues) {
+        reset({
+          name: "",
+          situation: "",
+          criteria: [],
+          labels: [],
+          maxTurns: null,
+          parameters: [],
+          ...defaultValues,
+        });
+      }
+    }
+  }, [defaultValues, reset]);
 }

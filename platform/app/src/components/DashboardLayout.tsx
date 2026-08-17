@@ -11,12 +11,6 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import {
-  type Organization,
-  OrganizationUserRole,
-  type Project,
-  type Team,
-} from "@prisma/client";
-import {
   Activity,
   ChevronDown,
   ChevronRight,
@@ -37,6 +31,12 @@ import {
   LANGY_TRANSITION,
 } from "~/features/langy/logic/langyPanelLayout";
 import { useLangyStore } from "~/features/langy/stores/langyStore";
+import {
+  type Organization,
+  OrganizationUserRole,
+  type Project,
+  type Team,
+} from "~/generated/prisma/client";
 import Head from "~/utils/compat/next-head";
 import { useRouter } from "~/utils/compat/next-router";
 import { ImpersonationBanner } from "../../ee/admin/ImpersonationBanner";
@@ -76,9 +76,9 @@ import { FullLogo } from "./icons/FullLogo";
 import { LogoIcon } from "./icons/LogoIcon";
 import { LoadingScreen } from "./LoadingScreen";
 import { MainMenu, MENU_WIDTH_COMPACT, MENU_WIDTH_EXPANDED } from "./MainMenu";
-import { SavedViewsBar } from "./messages/SavedViewsBar";
 import { PersonalSidebar } from "./PersonalSidebar";
 import { ProjectAvatar } from "./ProjectAvatar";
+import { SavedViewsBar } from "./SavedViewsBar";
 import { PresenceMenuItem } from "./sidebar/PresenceMenuItem";
 import { GlobalUpgradeModal } from "./UpgradeModal";
 import { UserAvatar } from "./UserAvatar";
@@ -632,10 +632,9 @@ export const DashboardLayout = ({
     organizationRole === OrganizationUserRole.ADMIN;
 
   const menuWidth = compactMenu ? MENU_WIDTH_COMPACT : MENU_WIDTH_EXPANDED;
-  const isTracesOrAnalyticsPage =
-    router.pathname.startsWith("/[project]/messages") ||
-    router.pathname.startsWith("/[project]/analytics");
-  const showSavedViews = isTracesOrAnalyticsPage;
+  // Analytics is the last surface on the v1 saved-views bar; the Trace
+  // Explorer carries its own view system.
+  const showSavedViews = router.pathname.startsWith("/[project]/analytics");
   // The presence toggle is meaningful only on the traces v2 lens
   // (multiplayer cursors + section presence are wired there). Gate the
   // avatar-menu entry so it stays off the other surfaces' chrome.

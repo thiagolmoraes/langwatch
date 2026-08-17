@@ -28,7 +28,7 @@
  *     (single trace store, reserved namespaces)
  */
 import type { ClickHouseClient } from "@clickhouse/client";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "~/generated/prisma/client";
 
 import { getClickHouseClientForOrganization } from "~/server/clickhouse/clickhouseClient";
 import {
@@ -1063,7 +1063,7 @@ export class ActivityMonitorService {
   }
 
   /**
-   * Recent anomaly alerts produced by the anomaly-detection reactor.
+   * Recent anomaly alerts produced by the anomaly-detection subscriber.
    * Read-only snapshot of `prisma.anomalyAlert` rows for the org,
    * sorted by detectedAt DESC. Returns `[]` for orgs with no alerts
    * - callers render the empty-state in the dashboard.
