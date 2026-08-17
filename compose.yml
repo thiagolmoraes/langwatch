@@ -1,6 +1,11 @@
 services:
   app:
-    image: langwatch/langwatch:latest
+    # Local-only tag, built on the host from this checkout
+    # (docker build -f infra/docker/Dockerfile -t langwatch/langwatch:hml .).
+    # "latest" collides with the upstream Docker Hub image, and
+    # pull_policy: always was replacing the fork build with the Hub
+    # image on every deploy.
+    image: langwatch/langwatch:hml
     environment:
       SKIP_ENV_VALIDATION: true
       DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
@@ -25,7 +30,6 @@ services:
       LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
     env_file:
       - platform/app/.env
-    pull_policy: always
     ports:
       - "5560:5560"
     volumes:
@@ -39,7 +43,7 @@ services:
         condition: service_healthy
 
   workers:
-    image: langwatch/langwatch:latest
+    image: langwatch/langwatch:hml
     command: ["pnpm", "run", "start:workers"]
     working_dir: /app/platform/app
     environment:
@@ -64,7 +68,6 @@ services:
       LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
     env_file:
       - platform/app/.env
-    pull_policy: always
     volumes:
       - langwatch-objects:/var/lib/langwatch/objects
     depends_on:
