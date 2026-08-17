@@ -79,6 +79,10 @@ const DEFAULT_TEST_ROOTS: string[] = [
   // assistant's rules are tested here (and nowhere else), so scenarios about
   // what an instruction teaches can only bind from this root.
   "skills/_tests",
+  // Playwright happy-path specs (`.spec.ts`). They are the only place a
+  // browser-driven @e2e scenario can bind — without this root every such
+  // scenario would be stuck on @unimplemented.
+  "platform/app/e2e",
 ];
 
 /**
@@ -653,7 +657,8 @@ const LEGACY_INERT: string[] = [
   "specs/workflows/workflow-management.feature",
 ];
 
-const TEST_FILE_RE = /\.test\.tsx?$/;
+// `.spec.ts` is the playwright naming convention under platform/app/e2e.
+const TEST_FILE_RE = /\.(test|spec)\.tsx?$/;
 const BATS_FILE_RE = /\.bats$/;
 const SHELL_TEST_FILE_RE = /\.sh$/;
 const GO_TEST_FILE_RE = /_test\.go$/;

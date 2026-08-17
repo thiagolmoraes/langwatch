@@ -60,3 +60,13 @@ Feature: Per-scenario maximum conversation turns
     When I enter a maximum turns value below 1 or above the allowed maximum
     Then the form shows a validation error
     And the scenario is not saved
+
+  @e2e
+  Scenario: A turn cap set in the scenario editor survives saving and reopening
+    Given I am creating a scenario in the editor
+    When I set the maximum turns to 2 and save
+    And I reopen the scenario
+    Then the maximum turns field shows 2
+    When I clear the maximum turns and save
+    And I reopen the scenario
+    Then the maximum turns field is empty, meaning the default applies
