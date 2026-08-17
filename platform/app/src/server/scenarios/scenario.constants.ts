@@ -37,3 +37,12 @@ export const CHILD_PROCESS = {
   /** Timeout for scenario child process execution (ms) */
   TIMEOUT_MS: 15 * 60 * 1000, // 15 minutes
 } as const;
+
+/**
+ * Turn cap the scenario engine uses when a scenario sets none. Mirrors the
+ * @langwatch/scenario SDK default. Used only in copy and hints, never sent.
+ */
+export const DEFAULT_SCENARIO_MAX_TURNS = 10;
+
+/** Upper bound for a per-scenario turn cap. Keeps run cost bounded. */
+export const MAX_SCENARIO_MAX_TURNS = 50;

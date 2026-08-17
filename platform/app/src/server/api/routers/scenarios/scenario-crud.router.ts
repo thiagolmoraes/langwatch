@@ -5,6 +5,7 @@ import { fireScenarioCreatedNurturing } from "~/../ee/billing/nurturing/hooks/fe
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { trackServerEvent } from "~/server/posthog";
 import { ScenarioNotFoundError } from "~/server/scenarios/errors";
+import { MAX_SCENARIO_MAX_TURNS } from "~/server/scenarios/scenario.constants";
 import { ScenarioService } from "~/server/scenarios/scenario.service";
 import { captureException } from "~/utils/posthogErrorCapture";
 import { checkProjectPermission } from "../../rbac";
@@ -12,7 +13,7 @@ import { projectSchema } from "./schemas";
 
 const logger = createLogger("langwatch:api:scenarios:crud");
 
-const createScenarioSchema = projectSchema.extend({
+export const createScenarioSchema = projectSchema.extend({
   name: z.string().min(1),
   situation: z.string(),
   criteria: z.array(z.string()).default([]),
@@ -21,9 +22,11 @@ const createScenarioSchema = projectSchema.extend({
   // default (scenarios.user_simulator / scenarios.judge).
   simulatorModel: z.string().nullish(),
   judgeModel: z.string().nullish(),
+  // Optional cap on conversation turns; null clears back to the SDK default.
+  maxTurns: z.number().int().min(1).max(MAX_SCENARIO_MAX_TURNS).nullish(),
 });
 
-const updateScenarioSchema = projectSchema.extend({
+export const updateScenarioSchema = projectSchema.extend({
   id: z.string(),
   name: z.string().min(1).optional(),
   situation: z.string().optional(),
@@ -31,6 +34,7 @@ const updateScenarioSchema = projectSchema.extend({
   labels: z.array(z.string()).optional(),
   simulatorModel: z.string().nullish(),
   judgeModel: z.string().nullish(),
+  maxTurns: z.number().int().min(1).max(MAX_SCENARIO_MAX_TURNS).nullish(),
 });
 
 /**

@@ -71,6 +71,8 @@ export interface ScenarioFetcher {
     simulatorModel?: string | null;
     /** Per-scenario judge model override (null = use default). */
     judgeModel?: string | null;
+    /** Per-scenario turn cap (null = SDK default). */
+    maxTurns?: number | null;
   } | null>;
 }
 
@@ -481,6 +483,7 @@ async function fetchScenario(
       situation: scenario.situation,
       criteria: scenario.criteria,
       labels: scenario.labels,
+      maxTurns: scenario.maxTurns ?? undefined,
     },
     simulatorModel: scenario.simulatorModel ?? null,
     judgeModel: scenario.judgeModel ?? null,
