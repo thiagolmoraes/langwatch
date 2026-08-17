@@ -741,11 +741,11 @@ describe("prefetchScenarioData", () => {
             agentFetcher: { findById: vi.fn().mockResolvedValue(httpAgent) },
           });
 
-          const result = await prefetchScenarioData(
-            defaultContext,
-            httpTarget,
+          const result = await prefetchScenarioData({
+            context: defaultContext,
+            target: httpTarget,
             deps,
-          );
+          });
 
           expect(result.success).toBe(true);
           if (result.success) {
@@ -769,11 +769,11 @@ describe("prefetchScenarioData", () => {
             agentFetcher: { findById: vi.fn().mockResolvedValue(httpAgent) },
           });
 
-          const result = await prefetchScenarioData(
-            defaultContext,
-            httpTarget,
+          const result = await prefetchScenarioData({
+            context: defaultContext,
+            target: httpTarget,
             deps,
-          );
+          });
 
           expect(result.success).toBe(true);
           if (result.success) {
