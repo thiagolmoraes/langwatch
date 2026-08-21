@@ -87,7 +87,7 @@ services:
     env_file:
       - platform/app/.env
     ports:
-      - "5561:5561"
+      - "127.0.0.1:5561:5561"
     restart: always
     pull_policy: always
     environment:
@@ -96,7 +96,7 @@ services:
   langevals:
     image: langwatch/langevals:latest
     ports:
-      - "5562:5562"
+      - "127.0.0.1:5562:5562"
     restart: always
     pull_policy: always
     environment:
@@ -134,7 +134,7 @@ services:
       POSTGRES_USER: prisma
       POSTGRES_PASSWORD: prisma
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -158,7 +158,7 @@ services:
     environment:
       CLICKHOUSE_PASSWORD: langwatch
     ports:
-      - "8123:8123"
+      - "127.0.0.1:8123:8123"
     volumes:
       - clickhouse-data:/var/lib/clickhouse
     deploy:
