@@ -1,4 +1,4 @@
-# Plan: dev/docs/ops-process-manager-visibility-plan.md. Phase 1 (read-only
+# Plan: dev/docs/plans/ops-process-manager-visibility-plan.md. Phase 1 (read-only
 # fleet + instance drawer) and the phase-2 safe actions are built; the
 # remaining @unimplemented scenarios are phase 3 (signals/alerting).
 
@@ -77,10 +77,11 @@ Feature: Process-manager visibility in ops
   # feature (best_practices/ops-dashboard.md), and dead work is the one state
   # this substrate reports that never resolves on its own.
   #
-  # The outbox row does not record WHY a message died: the dispatcher puts the
-  # diagnostic on the span and the log line. Each row carries its trace id
-  # instead, so the reason is one hop away rather than duplicated into
-  # Postgres.
+  # v1 did not record WHY a message died — the dispatcher put the diagnostic
+  # on the span and the log line, and each row carried its trace id as the
+  # join back to it. dead-letter-recovery.feature reverses that: failed
+  # attempts are recorded per message, so the reason is on the page. The
+  # trace id remains as the deeper join.
 
   @integration
   Scenario: Dead messages are listed across the whole fleet
@@ -129,3 +130,18 @@ Feature: Process-manager visibility in ops
     When the operator releases the lease
     Then the message becomes due immediately
     And a live lease cannot be released from under its delivery
+
+  # ── The API process's own composition ──────────────────────────────────
+
+  @unit
+  Scenario: The operator fleet is read from the process-manager tables
+    Given the API process composed its operator back office
+    When the operator opens the fleet
+    Then the rows come from the process-manager instance and outbox tables
+    And a process the registry cannot name is shown as unregistered rather than hidden
+
+  @unit
+  Scenario: The eventing hand-off outbox is named, not shown as unregistered
+    Given dead hand-off messages under the outbox eventing hosts itself
+    When the operator opens the fleet
+    Then the row names it the eventing hand-off outbox, whose redrive is live

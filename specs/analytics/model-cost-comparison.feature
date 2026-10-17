@@ -10,6 +10,7 @@ Feature: Model cost comparison — estimated savings against a reference model
     Given a project with traffic in the selected period
     And the traffic carries input and output token counts
 
+  @unit
   Scenario: Comparing local traffic against a commercial reference model
     Given the period has 2,000,000 input tokens and 500,000 output tokens
     And the actual recorded cost for the period is $0
@@ -18,20 +19,24 @@ Feature: Model cost comparison — estimated savings against a reference model
     And the estimate is input_tokens x reference input price plus output_tokens x reference output price
     And the card shows the estimated savings (estimate minus actual cost)
 
+  @integration
   Scenario: Comparison respects the page filters
     Given the user filtered the page by a label
     When the savings card computes token totals
     Then only traffic matching the filters is counted
     And changing the date range recomputes the comparison
 
+  @unit
   Scenario: Only models with catalog pricing are offered as reference
     When the user opens the reference model selector
     Then models without pricing in the catalog are not listed
 
+  @unit
   Scenario: Traffic that already costs more than the reference shows negative savings
     Given the actual recorded cost is higher than the reference estimate
     Then the card presents the difference as additional cost, not savings
 
+  @integration
   Scenario: No traffic in the period
     Given the filtered period has zero tokens
     Then the card shows an empty state instead of a $0.00 comparison

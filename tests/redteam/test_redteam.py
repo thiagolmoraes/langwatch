@@ -1,3 +1,4 @@
+import os
 import litellm
 import pytest
 import httpx
@@ -7,17 +8,18 @@ from openai import OpenAI
 
 litellm.modify_params = True
 
-GATEWAY = "http://192.168.15.101:5563/v1"
-ATTACKER_MODEL = "anthropic/claude-haiku-4-5-20251001"
+# Credenciais e alvos vêm do ambiente. Nunca hardcode aqui: o repo é público.
+GATEWAY = os.environ.get("REDTEAM_GATEWAY_URL", "http://192.168.123.25:5563/v1")
+ATTACKER_MODEL = os.environ.get("REDTEAM_ATTACKER_MODEL", "anthropic/claude-haiku-4-5-20251001")
 
-STICKY_BASE = "https://sticky.offsecops.dev"
-STICKY_SESSION = "1c82deec-3382-450e-aa36-84fc7f67bbda"
-STICKY_EMAIL = "security-eval@stickyapp.dev"
-STICKY_PASSWORD = "BhV8QEzpbmrfaxBM78o4oOA8"
+STICKY_BASE = os.environ.get("STICKY_BASE", "https://sticky.offsecops.dev")
+STICKY_SESSION = os.environ["STICKY_SESSION"]
+STICKY_EMAIL = os.environ["STICKY_EMAIL"]
+STICKY_PASSWORD = os.environ["STICKY_PASSWORD"]
 
-ATLAS_BASE = "https://atlas.offsecops.dev"
-ATLAS_EMAIL = "master@atlas.local"
-ATLAS_PASSWORD = "ChangeMe123!"
+ATLAS_BASE = os.environ.get("ATLAS_BASE", "https://atlas.offsecops.dev")
+ATLAS_EMAIL = os.environ["ATLAS_EMAIL"]
+ATLAS_PASSWORD = os.environ["ATLAS_PASSWORD"]
 
 
 # ── Sticky auth helpers ────────────────────────────────────────────────────────

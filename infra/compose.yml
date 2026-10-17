@@ -1,9 +1,10 @@
 # CD webhook test — safe to remove, no functional effect.
 services:
+  # No migrate step: the workers run `pnpm task upgrade` until the ledger is
+  # current while the app holds (specs/upgrade/entry-points.feature).
   app:
     image: langwatch/langwatch:latest
     environment:
-      SKIP_ENV_VALIDATION: true
       DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
       CLICKHOUSE_URL: http://default:langwatch@clickhouse:8123/langwatch
       # This compose stack runs a plain ClickHouse with no backups, so
@@ -25,7 +26,10 @@ services:
       # DB still points to.
       LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
     env_file:
-      - platform/app/.env
+      - path: .env
+        required: false
+      - path: platform/app/.env
+        required: false
     pull_policy: always
     ports:
       - "5560:5560"
@@ -38,13 +42,13 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+    restart: unless-stopped
 
   workers:
     image: langwatch/langwatch:latest
-    command: ["pnpm", "run", "start:workers"]
-    working_dir: /app/platform/app
+    command: ["pnpm", "run", "start"]
+    working_dir: /app/apps/worker
     environment:
-      SKIP_ENV_VALIDATION: true
       DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
       CLICKHOUSE_URL: http://default:langwatch@clickhouse:8123/langwatch
       # This compose stack runs a plain ClickHouse with no backups, so
@@ -64,7 +68,10 @@ services:
       # other wrote.
       LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
     env_file:
-      - platform/app/.env
+      - path: .env
+        required: false
+      - path: platform/app/.env
+        required: false
     pull_policy: always
     volumes:
       - langwatch-objects:/var/lib/langwatch/objects
@@ -83,9 +90,14 @@ services:
   langwatch_nlp:
     image: langwatch/langwatch_nlp:latest
     env_file:
-      - platform/app/.env
-    ports:
-      - "5561:5561"
+      - path: .env
+        required: false
+      - path: platform/app/.env
+        required: false
+    # No host port - accessed via docker network as "langwatch_nlp:5561".
+    # The app and workers dial it there, so nothing needed the host binding,
+    # and this engine runs workflow nodes for whichever project the request
+    # body names.
     restart: always
     pull_policy: always
     environment:
