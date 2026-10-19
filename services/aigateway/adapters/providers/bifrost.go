@@ -119,11 +119,7 @@ func NewBifrostRouter(ctx context.Context, opts BifrostOptions) (*BifrostRouter,
 	}
 	compatEndpoints := newAnthropicCompatRegistry(anthropicCompatMaxEndpoints)
 	bf, err := bifrost.Init(ctx, bfschemas.BifrostConfig{
-		Account: &account{
-			anthropicCompat: compatEndpoints,
-			openAIBaseURL:   opts.OpenAIBackendURL,
-			logger:          opts.Logger,
-		},
+		Account:         newBifrostAccount(opts, compatEndpoints),
 		InitialPoolSize: pool,
 		Logger:          &bifrostLogger{logger: opts.Logger},
 	})
@@ -170,6 +166,18 @@ func NewBifrostRouter(ctx context.Context, opts BifrostOptions) (*BifrostRouter,
 		elevenLabsClient: newElevenLabsAudioClient(endpointPolicy),
 		openAIBaseURL:    opts.OpenAIBackendURL,
 	}, nil
+}
+
+// newBifrostAccount builds the bifrost account from the router options.
+// Private egress follows the gateway's own policy: BlockLocalHTTPCalls off
+// means bifrost may dial RFC 1918 addresses too.
+func newBifrostAccount(opts BifrostOptions, compatEndpoints *anthropicCompatRegistry) *account {
+	return &account{
+		anthropicCompat:     compatEndpoints,
+		openAIBaseURL:       opts.OpenAIBackendURL,
+		logger:              opts.Logger,
+		allowPrivateNetwork: !opts.BlockLocalHTTPCalls,
+	}
 }
 
 // newVoyageClient builds the direct Voyage HTTP client. Shares the
@@ -1262,6 +1270,10 @@ type account struct {
 	// logger is passed to credentialToBifrostKey for the dropped
 	// api_version warning. May be nil.
 	logger *zap.Logger
+	// allowPrivateNetwork is copied into every provider's
+	// NetworkConfig.AllowPrivateNetwork. It is !BlockLocalHTTPCalls. See
+	// GetConfigForProvider.
+	allowPrivateNetwork bool
 	// warnedAzureAPIVersionIDs tracks credential IDs that have already
 	// logged the dropped-api_version warning, so a long-lived account
 	// (dispatched to concurrently by bifrost's worker pool) warns at most
@@ -1364,6 +1376,14 @@ func (a *account) GetConfigForProvider(provider bfschemas.ModelProvider) (*bfsch
 	// anything.
 	cfg.NetworkConfig.DefaultRequestTimeoutInSeconds = ProviderRequestTimeoutSeconds
 	cfg.NetworkConfig.StreamIdleTimeoutInSeconds = ProviderRequestTimeoutSeconds
+	// bifrost >=1.5 dials through its own resolver and refuses RFC 1918
+	// addresses unless AllowPrivateNetwork is set (default false). The
+	// gateway already enforces egress with BLOCK_LOCAL_HTTP_CALLS
+	// (customerEndpointPolicy), so a second hidden block in the lib only
+	// breaks self-hosted LAN endpoints the policy allowed. bifrost always
+	// refuses link-local at dial time. Cloud metadata addresses are refused
+	// by endpointAddressError at validation time, not by bifrost.
+	cfg.NetworkConfig.AllowPrivateNetwork = a.allowPrivateNetwork
 	if provider == bfschemas.OpenAI && a.openAIBaseURL != "" {
 		cfg.NetworkConfig.BaseURL = a.openAIBaseURL
 	}
