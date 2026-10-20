@@ -1,12 +1,16 @@
 services:
   app:
     restart: unless-stopped
-    # Local-only tag, built on the host from this checkout
-    # (docker build -f infra/docker/Dockerfile -t langwatch/langwatch:hml .).
-    # "latest" collides with the upstream Docker Hub image, and
-    # pull_policy: always was replacing the fork build with the Hub
-    # image on every deploy.
+    # Local-only tag. Komodo builds it from this checkout on every deploy,
+    # and workers run the same tag. "latest" collides with the upstream
+    # Docker Hub image, and pull_policy: always was replacing the fork
+    # build with the Hub image on every deploy.
+    # The Next.js build peaks near 9GB (RAM + swap). The host keeps an 8GB
+    # swapfile for it.
     image: langwatch/langwatch:hml
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
     environment:
       SKIP_ENV_VALIDATION: true
       DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
