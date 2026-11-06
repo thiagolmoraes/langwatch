@@ -107,6 +107,7 @@
     "ConversationId <- ConversationId",
     "CustomerId <- CustomerId",
     "Origin <- Origin",
+    "Source <- Origin",
     "Models <- Models",
     "Labels <- Labels",
     "TotalCost <- TotalCost [cost:view]",
@@ -170,6 +171,7 @@
     "ConversationId <- ConversationId",
     "CustomerId <- CustomerId",
     "Origin <- Origin",
+    "Source <- Origin",
     "DurationMs <- DurationMs",
     "TotalCost <- TotalCost [cost:view]",
     "NonBilledCost <- NonBilledCost [cost:view]",
@@ -543,7 +545,8 @@
     "TokensOutputAudio <- TokensOutputAudio",
     "TokensInputImage <- TokensInputImage",
     "TokensOutputImage <- TokensOutputImage",
-    "ImageCount <- ImageCount"
+    "ImageCount <- ImageCount",
+    "WebSearchRequests <- WebSearchRequests"
   ],
   "governance_cost_restatements <- governance_cost_rollup_restatement_index": [
     "TenantId <- TenantId",

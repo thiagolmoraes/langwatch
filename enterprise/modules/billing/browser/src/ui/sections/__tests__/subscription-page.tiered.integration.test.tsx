@@ -46,6 +46,10 @@ class TestBillingHost extends BillingHostApi {
     return "test-team-id";
   }
 
+  canInviteMembers(): boolean {
+    return true;
+  }
+
   routeQuery(): Readonly<Record<string, string | undefined>> {
     return {};
   }
@@ -63,6 +67,10 @@ class TestBillingHost extends BillingHostApi {
   }
 
   navigate(to: string): void {
+    this.navigations.push(to);
+  }
+
+  replace(to: string): void {
     this.navigations.push(to);
   }
 
@@ -229,14 +237,14 @@ describe("<SubscriptionPage/>", () => {
         expect(screen.queryByTestId("tiered-pricing-alert")).not.toBeInTheDocument();
       });
 
-      it("hides upgrade plan block on free plan without seat changes", async () => {
+      it("offers the upgrade plan block on free plan without seat changes", async () => {
         renderSubscriptionPage();
 
         await waitFor(() => {
           expect(screen.getByTestId("current-plan-block")).toBeInTheDocument();
         });
 
-        expect(screen.queryByTestId("upgrade-plan-block")).not.toBeInTheDocument();
+        expect(screen.getByTestId("upgrade-plan-block")).toBeInTheDocument();
       });
 
       it("shows legacy paid plan name as current plan title", async () => {
@@ -321,6 +329,14 @@ describe("<SubscriptionPage/>", () => {
       await waitFor(() => {
         expect(screen.getByTestId("tiered-deprecated-notice")).toBeInTheDocument();
       });
+    });
+
+    /** @scenario "A legacy plan within its seats is asked to upgrade without the danger tone" */
+    it("marks the upgrade as required in the warning tone", async () => {
+      renderSubscriptionPage();
+
+      const chip = await screen.findByTestId("upgrade-required-chip");
+      expect(chip).toHaveAttribute("data-tone", "warning");
     });
 
     it("shows legacy tiered capabilities in the current plan block", async () => {

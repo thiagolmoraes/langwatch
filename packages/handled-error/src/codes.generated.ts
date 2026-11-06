@@ -278,9 +278,28 @@ export const goErrorCodes = {
    * ErrJSONPathNoMatch — signals an HTTP block's output_path matched no
    * element of the upstream response.
    *
+   * Also produced as a workflow NodeError type, so this one entry is the copy
+   * for both the HTTP failure and the node error event. Its node sites are
+   * among the @source files below.
+   *
+   * @source services/nlpgo/app/engine/engine.go
    * @source services/nlpgo/domain/errors.go
    */
   jsonpath_no_match: { service: "nlpgo", httpStatus: 422 },
+  /**
+   * ErrProviderKeyRejected — marks a key the provider refused on a status
+   * other than 401 or 403.
+   *
+   * @source services/langyagent/adapters/otelrelay/llmproxy.go
+   */
+  llm_provider_key_rejected: { service: "langyagent" },
+  /**
+   * ErrProviderOutOfCredit — marks a provider account with no credit or quota
+   * left.
+   *
+   * @source services/langyagent/adapters/otelrelay/llmproxy.go
+   */
+  llm_provider_out_of_credit: { service: "langyagent" },
   /**
    * llmUpstreamErrorCode — marks a failed mediated LLM call whose response
    * body was NOT the gateway's typed herr envelope — a provider-native error

@@ -331,6 +331,84 @@ describe("explainLangyError", () => {
         });
       });
 
+      /** @scenario A request the provider refuses with a plain 400 offers no retry */
+      it.each([[[{ kind: "invalid_request_error" }]], [[{ kind: "upstream_bad_request" }]]])(
+        "reads %j as an invalid request, and offers the settings",
+        (reasons) => {
+          // The chain every Anthropic turn on a Claude 5.5 model recorded while
+          // the worker sent a thinking shape those models refuse.
+          const presentation = explainLangyError(
+            domain({
+              code: "langy_agent_errored",
+              reasons: [
+                {
+                  kind: "llm_upstream_error",
+                  meta: { http_status: 400, provider: "anthropic", body_kind: "json" },
+                  reasons,
+                },
+              ],
+            }),
+          );
+
+          expect(presentation.kind).toBe("llm_upstream_error");
+          expect(presentation.action).toEqual({
+            label: "Configure model",
+            kind: "configure-model",
+          });
+        },
+      );
+
+      /** @scenario A spent provider balance reads as the account to top up, with no retry */
+      it("reads a spent balance as the account to top up, and offers the settings", () => {
+        const presentation = explainLangyError(
+          domain({
+            code: "langy_agent_errored",
+            reasons: [
+              {
+                kind: "llm_upstream_error",
+                meta: { http_status: 400, provider: "anthropic", body_kind: "json" },
+                reasons: [
+                  { kind: "invalid_request_error" },
+                  { kind: "llm_provider_out_of_credit" },
+                ],
+              },
+            ],
+          }),
+        );
+
+        expect(presentation.kind).toBe("llm_upstream_error");
+        expect(presentation.title).toBe("This provider account is out of credit");
+        expect(presentation.description).toBe(
+          "Your account with this model provider has no allowance left. Check its billing or usage limits, or pick a model from a different provider.",
+        );
+        expect(presentation.action).toEqual({
+          label: "Configure model",
+          kind: "configure-model",
+        });
+      });
+
+      /** @scenario A key the provider refuses on a 400 reads as a credential to check */
+      it("reads the proxy's refused-key reason as the provider refusing the key", () => {
+        const presentation = explainLangyError(
+          domain({
+            code: "langy_agent_errored",
+            reasons: [
+              {
+                kind: "llm_upstream_error",
+                meta: { http_status: 400, provider: "gemini", body_kind: "json" },
+                reasons: [{ kind: "INVALID_ARGUMENT" }, { kind: "llm_provider_key_rejected" }],
+              },
+            ],
+          }),
+        );
+
+        expect(presentation.title).toBe("This provider rejected the API key");
+        expect(presentation.action).toEqual({
+          label: "Configure model",
+          kind: "configure-model",
+        });
+      });
+
       /** @scenario A failure the gateway files as the provider's reads as the provider card */
       it("reads the gateway's provider_error as the provider card", () => {
         // The chain the guided-onboarding turn on Bedrock recorded while the
@@ -521,6 +599,87 @@ describe("explainLangyError", () => {
         expect(presentation.description).toBe(
           "The model chosen for Langy has no provider connected in this project. Pick another model, or connect its provider in model settings.",
         );
+      });
+    });
+  });
+
+  describe("given an agent failure an AI gateway spending limit refused", () => {
+    const budgetReason = {
+      kind: "budget_exceeded",
+      meta: {
+        budget_id: "budget_1",
+        budget_scope: "team",
+        budget_window: "month",
+        http_status: 402,
+        message: "The team spending limit (per month) for this request has been reached.",
+      },
+    };
+
+    describe("when the failure is explained", () => {
+      /** @scenario A spending limit reads as the limit, not as a failed reply */
+      it("names whose limit ran out, when it resets and who raises it, with no retry", () => {
+        const presentation = explainLangyError(
+          domain({
+            code: "langy_agent_errored",
+            httpStatus: 502,
+            reasons: [budgetReason],
+          }),
+        );
+
+        expect(presentation.kind).toBe("budget_exceeded");
+        expect(presentation.title).toBe("Your team's monthly AI spending limit is reached");
+        expect(presentation.description).toBe(
+          "Requests are blocked until its monthly window resets. An admin can raise it in AI Gateway budgets.",
+        );
+        expect(presentation.action).toEqual({ label: "View budgets", kind: "open-budgets" });
+        expect(presentation.meta).toEqual({ budget_scope: "team", budget_window: "month" });
+      });
+
+      /** @scenario A spending limit reads as the limit, not as a failed reply */
+      it("finds the budget reason at any depth of the chain", () => {
+        const presentation = explainLangyError(
+          domain({
+            code: "langy_agent_errored",
+            reasons: [{ kind: "agent_error", reasons: [budgetReason] }],
+          }),
+        );
+
+        expect(presentation.kind).toBe("budget_exceeded");
+        expect(presentation.action?.kind).toBe("open-budgets");
+      });
+
+      /** @scenario A spending limit reads as the limit, not as a failed reply */
+      it("names a project's daily limit by its own scope and window", () => {
+        const presentation = explainLangyError(
+          domain({
+            code: "langy_agent_errored",
+            reasons: [
+              { kind: "budget_exceeded", meta: { budget_scope: "project", budget_window: "day" } },
+            ],
+          }),
+        );
+
+        expect(presentation.title).toBe("This project's daily AI spending limit is reached");
+        expect(presentation.description).toContain("daily window resets");
+      });
+    });
+
+    describe("when the budget named no scope or window", () => {
+      /** @scenario A spending limit with no named scope still reads as a spending limit */
+      it("keeps the plain spending-limit card, still without a retry", () => {
+        const presentation = explainLangyError(
+          domain({
+            code: "langy_agent_errored",
+            reasons: [{ kind: "budget_exceeded", meta: { budget_scope: "constructor" } }],
+          }),
+        );
+
+        expect(presentation.kind).toBe("budget_exceeded");
+        expect(presentation.title).toBe("Your AI spending limit is reached");
+        expect(presentation.description).toBe(
+          "Requests are blocked until the limit is raised. An admin can raise it in AI Gateway budgets.",
+        );
+        expect(presentation.action?.kind).toBe("open-budgets");
       });
     });
   });
@@ -1009,6 +1168,35 @@ describe("resolveLiveTurnError", () => {
         });
 
         expect(domain.code).toBe("langy_agent_errored");
+      });
+    });
+  });
+
+  describe("given a budget refusal rode the stream's terminal entry", () => {
+    describe("when the live message carries the typed payload", () => {
+      /** @scenario A spending limit on the live stream reads the same as after a refresh */
+      it("explains it as the spending limit before any refresh", () => {
+        const streamError = JSON.stringify({
+          code: "langy_agent_errored",
+          httpStatus: 502,
+          meta: {},
+          retryable: false,
+          reasons: [
+            {
+              code: "budget_exceeded",
+              kind: "budget_exceeded",
+              meta: { budget_scope: "team", budget_window: "month", http_status: 402 },
+            },
+          ],
+        });
+
+        const domain = resolveLiveTurnError({
+          error: new Error(streamError),
+          durableLastError: null,
+        });
+
+        expect(explainLangyError(domain).kind).toBe("budget_exceeded");
+        expect(explainLangyError(domain).action?.kind).toBe("open-budgets");
       });
     });
   });

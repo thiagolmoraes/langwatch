@@ -63,6 +63,7 @@ import { ConnectedSeatChangeService } from "../features/connected-billing/servic
 import { ConnectedUsageCeilingService } from "../features/connected-billing/services/connected-usage-ceiling.service.ts";
 import { LicensePurchaseDeliveryService } from "../features/license-purchase/services/license-purchase-delivery.service.ts";
 import { LicensePurchaseService } from "../features/license-purchase/services/license-purchase.service.ts";
+import { LicenseRenewalService } from "../features/license-purchase/services/license-renewal.service.ts";
 import { LicensingLicenseGeneratorService } from "../features/license-purchase/services/licensing-license-generator.service.ts";
 import type { BillingRepositories } from "../repositories/billing.repositories.ts";
 import { isStripeTestModeKey } from "../rules/stripe-mode.rules.ts";
@@ -90,7 +91,10 @@ import { SeatEventSubscriptionService } from "../services/seat-event-subscriptio
 import { StripeCustomerCurrencyService } from "../services/stripe-customer-currency.service.ts";
 import { StripeErrorTranslatorService } from "../services/stripe-error-translator.service.ts";
 import { SubscriptionItemCalculatorService } from "../services/subscription-item-calculator.service.ts";
-import { BillingSubscriptionService } from "../services/subscription.service.ts";
+import {
+  BillingSubscriptionService,
+  type SeatsInUseCounter,
+} from "../services/subscription.service.ts";
 import { UsageLimitOrganizationService } from "../services/usage-limit-organization.service.ts";
 import {
   StripeUsageReportingBuilder,
@@ -114,7 +118,11 @@ type BillingSetup = FeatureSetup<
 /** The license registry's view of a customer's terms and seats. */
 type ConnectedLicensing = Pick<
   LicensingApi,
-  "getContractTerms" | "raiseContractCommit" | "getConnectedSeats" | "findSeatChanges"
+  | "getContractTerms"
+  | "raiseContractCommit"
+  | "getConnectedSeats"
+  | "findSeatChanges"
+  | "countFullSeatsInUse"
 >;
 
 /** The peers connected billing reads and gates through, each only as wide as it is used. */
@@ -135,6 +143,8 @@ type StripeWebhookComposition = Readonly<{
   host: BillingWebhookHost;
   /** Main's licence purchase: signs, records, mails and announces; absent without the key. */
   licensePurchase?: LicensePurchaseHandler;
+  /** Delivers a renewed licence subscription's next term, as a purchase is; absent without the key. */
+  licenseRenewal?: Pick<LicensePurchaseService, "mintRenewal" | "sendRenewal">;
   /** Clears a trial's licence once its subscription activates; licensing owns it. */
   licenses: Pick<LicensingApi, "removeLicense" | "getLicenseStatus">;
 }>;
@@ -225,6 +235,7 @@ export class BillingModule
         host: SlackBillingWebhookHostChannel.create({ notices }),
         licenses: setup.dependencies.licensing,
         licensePurchase,
+        licenseRenewal: licensePurchase,
       },
       subscription: {
         notifier: SlackBillingSubscriptionNotifierChannel.create({ notices }),
@@ -344,6 +355,7 @@ export class BillingModule
       | "organizationPricing"
       | "webhookSubscriptions"
       | "webhookOrganizations"
+      | "licenseRenewalClaims"
       | "seatEventSubscriptions"
       | "organizations"
       | "gatewaySpend"
@@ -450,6 +462,7 @@ export class BillingModule
               stripe,
               nodeEnvironment,
               repositories,
+              seatsInUse: licensing,
             })
           : void 0,
       connected: {
@@ -490,10 +503,12 @@ export class BillingModule
     stripe,
     nodeEnvironment,
     repositories,
+    seatsInUse,
   }: {
     subscription: SubscriptionComposition;
     stripe: Pick<BillingStripe, "channels">;
     nodeEnvironment: string | undefined;
+    seatsInUse: SeatsInUseCounter;
     repositories: Pick<
       BillingRepositories,
       "subscriptions" | "organizations" | "seatEventSubscriptions"
@@ -521,6 +536,7 @@ export class BillingModule
         }),
         notifier: subscription.notifier,
         stripeErrors,
+        seatsInUse,
       }),
     };
   }
@@ -637,13 +653,27 @@ export class BillingModule
     isSaas: boolean;
     stripe: BillingStripe;
     nodeEnvironment: string | undefined;
-    repositories: Pick<BillingRepositories, "webhookSubscriptions" | "webhookOrganizations">;
+    repositories: Pick<
+      BillingRepositories,
+      "webhookSubscriptions" | "webhookOrganizations" | "licenseRenewalClaims"
+    >;
     licensePaymentLinkId: string | undefined;
     connectedBilling: ConnectedBillingService;
   }): StripeWebhookReceiptService {
     const prices = BillingPriceCatalogue.create(
       getStripeEnvironmentFromNodeEnv(nodeEnvironment),
     ).prices;
+    const renewalIssuer = webhook.licenseRenewal;
+    const licenseRenewal =
+      licensePaymentLinkId && renewalIssuer
+        ? LicenseRenewalService.create({
+            licensePaymentLinkId,
+            subscriptions: repositories.webhookSubscriptions,
+            stripeSubscriptions: stripe.channels.subscriptions,
+            claims: repositories.licenseRenewalClaims,
+            issuer: renewalIssuer,
+          })
+        : undefined;
     const events = EEWebhookService.create({
       subscriptionRepository: repositories.webhookSubscriptions,
       organizationRepository: repositories.webhookOrganizations,
@@ -652,6 +682,7 @@ export class BillingModule
       licensePaymentLinkId,
       licenses: webhook.licenses,
       licensePurchaseHandler: webhook.licensePurchase,
+      ...(licenseRenewal ? { licenseRenewal } : {}),
       host: webhook.host,
       connectedBilling,
       ...(announcer ? { announcer } : {}),

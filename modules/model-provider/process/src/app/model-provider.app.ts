@@ -6,6 +6,7 @@ import { ManagedProviderApi } from "@langwatch/enterprise-managed-provider-contr
  * The model-provider feature's application: what `modelProvider.*`, `llmModelCost.*` and
  * `translate.*` all call, so caller attribution and Codex-role defaults are written once.
  */
+import { FeatureFlagApi } from "@langwatch/feature-flag-contract";
 import {
   CODEX_DEFAULT_MODEL,
   findFeatureByKey,
@@ -59,6 +60,8 @@ import {
   type ModelProviderPlaygroundRequest,
   type ModelProviderListOrganizationInput,
   type ModelProviderListProjectInput,
+  type BuiltInModel,
+  type DecisionModelResolution,
   type ModelProviderResolution,
   type ModelProviderSummary,
   type TranslateInput,
@@ -80,7 +83,10 @@ import {
   executionProxyBaseUrlOf,
   type ModelProviderConnectionPing,
 } from "../channels/model-provider-connection-ping.channel.ts";
-import type { ModelProviderChannels } from "../channels/model-provider.channels.ts";
+import type {
+  ModelProviderChannels,
+  ModelProviderSpend,
+} from "../channels/model-provider.channels.ts";
 import { CodexAccountService } from "../features/codex/services/codex-account.service.ts";
 import {
   CodexOAuthModelProviderTokenRefresherService,
@@ -111,6 +117,7 @@ import { ModelProviderKeysService } from "../services/model-provider-keys.servic
 import { ModelProviderPlaygroundService } from "../services/model-provider-playground.service.ts";
 import { ModelProviderStructuredGenerationService } from "../services/model-provider-structured-generation.service.ts";
 import { ModelProviderTextGenerationService } from "../services/model-provider-text-generation.service.ts";
+import { ModelProviderUsageMeteringService } from "../services/model-provider-usage-metering.service.ts";
 import { ModelProviderWriteAuthorizationService } from "../services/model-provider-write-authorization.service.ts";
 import { ModelProviderService as ModelProviderGateway } from "../services/model-provider.service.ts";
 import { PlatformProviderChainService } from "../services/platform-provider-chain.service.ts";
@@ -161,6 +168,8 @@ export interface ModelProviderInfrastructure {
   codexAccounts: ModelProviderCodexDeviceFlow;
   /** Trace's span reads, for the cost-rule preview. */
   spans: ModelCostPreviewSpanReader;
+  /** The spend ledger platform calls write their usage to; absent writes nothing (ADR-193). */
+  spend?: ModelProviderSpend;
 }
 
 /** The identifier format this deployment mints a provider, default or cost in. */
@@ -217,6 +226,7 @@ export class ModelProviderModule implements ModelProviderApi {
     dataPrivacy: DataPrivacyApi,
     managed: ManagedProviderApi,
     secrets: SecretApi,
+    featureFlags: FeatureFlagApi,
   };
   static readonly config = modelProviderConfig;
   /**
@@ -243,6 +253,8 @@ export class ModelProviderModule implements ModelProviderApi {
   /** What the module's own operations spend, never a platform provider credential. */
   static readonly operationalSecrets = {
     openRouter: Secret.load("OPENROUTER_API_KEY", { optional: true }),
+    /** Doubleword's platform key, which reads its model list and prices for the catalog sync. */
+    doublewordCatalog: Secret.load("DOUBLEWORD_API_KEY", { optional: true }),
     /** The engine hop's shared credential: the same handle the process owner holds. */
     nlpInternal: nlpInternalSecret,
   } as const;
@@ -364,6 +376,7 @@ export class ModelProviderModule implements ModelProviderApi {
       credentialProbe: probe,
       codexAccounts: CodexAccountService.create({ issuer: config.codexOAuthIssuer }),
       spans: channels.spans,
+      spend: channels.spend,
     };
   }
 
@@ -458,6 +471,11 @@ export class ModelProviderModule implements ModelProviderApi {
       ids: infrastructure.ids,
       codexTokenRefresher: infrastructure.codexTokenRefresher,
       connectionRateLimiter: infrastructure.connectionRateLimiter,
+      isOwnDecisionModelAllowed: ({ organizationId }) =>
+        dependencies.featureFlags.isEnabled("release_instant_evals_own_decision_model", {
+          kind: "organization",
+          organizationId,
+        }),
     });
     this.#providerAuthorization = ModelProviderWriteAuthorizationService.create(
       ModelProviderAuthorizationService.create(dependencies.permissions),
@@ -470,17 +488,20 @@ export class ModelProviderModule implements ModelProviderApi {
       modelProviders: this,
       environment,
     });
+    const metering = ModelProviderUsageMeteringService.create({ spend: infrastructure.spend });
     this.#playground = ModelProviderPlaygroundService.create({
       modelProviders: this,
       projects: dependencies.projects,
       executionProxyBaseUrl,
       nlpInternalSecret,
+      metering,
     });
     const execution = ModelProviderExecutionHandleService.create({
       modelProviders: this.#modelProviders,
       projects: dependencies.projects,
       executionProxyBaseUrl,
       nlpInternalSecret,
+      metering,
     });
     this.#structuredGeneration = ModelProviderStructuredGenerationService.create({
       execution,
@@ -751,6 +772,24 @@ export class ModelProviderModule implements ModelProviderApi {
 
   resolveModelForFeature(input: ModelDefaultResolveInput): Promise<ModelProviderResolution> {
     return this.#modelProviders.resolveModelForFeature(input);
+  }
+
+  resolveDecisionModel(input: {
+    projectId: string;
+    model?: string;
+  }): Promise<DecisionModelResolution> {
+    return this.#modelProviders.resolveDecisionModel(input);
+  }
+
+  listDecisionModelsForProject(input: { projectId: string }): Promise<readonly BuiltInModel[]> {
+    return this.#modelProviders.listDecisionModelsForProject(input);
+  }
+
+  listDecisionModelsForScopes(input: {
+    projectId: string;
+    scopes: readonly ModelDefaultScope[];
+  }): Promise<readonly BuiltInModel[]> {
+    return this.#modelProviders.listDecisionModelsForScopes(input);
   }
 
   findAlternateModel(input: {

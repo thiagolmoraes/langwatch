@@ -31,18 +31,17 @@ vi.mock("../../dashboard-widget/ui/sections/sandboxed-chart-frame.tsx", () => ({
 
 import { StubAnalyticsHost } from "../../../testing.tsx";
 import type { SandboxedChartFrameProps } from "../../dashboard-widget/ui/sections/sandboxed-chart-frame.tsx";
-import type { BoardQueryContext } from "../model/board-period.ts";
+import type { BoardPeriod } from "../model/board-period.ts";
 import type { BoardWidget } from "../model/board-widgets.ts";
 import { BoardWidgetCard } from "../ui/sections/board-widget-card.tsx";
 import { CuratedWidgetCard } from "../ui/sections/curated-widget-card.tsx";
 import { renderDashboards } from "./render-dashboards.test-helpers.tsx";
 
 /** 2026-10-01T00:00:00Z to 2026-10-08T00:00:00Z: seven whole UTC days. */
-const PERIOD: BoardQueryContext = {
+const PERIOD: BoardPeriod = {
   periodStart: Date.UTC(2026, 9, 1),
   periodEnd: Date.UTC(2026, 9, 8),
   granularitySeconds: 86_400,
-  excludeOrigins: ["langy"],
 };
 const DEFINITION = {
   version: 1 as const,
@@ -115,6 +114,7 @@ function storedCard({ answer }: { answer: UiProcedureAnswer }) {
         dashboardId="board-1"
         boardName="Weekly review"
         period={PERIOD}
+        periodKey="30d:auto"
         isWriting={false}
         onEdit={vi.fn()}
         onDuplicate={vi.fn()}
@@ -145,7 +145,7 @@ function curatedCard({ answer }: { answer: UiProcedureAnswer }) {
         rowSpan={4}
         timeWindow={{ start: PERIOD.periodStart, end: PERIOD.periodEnd }}
         granularitySeconds={PERIOD.granularitySeconds}
-        excludeOrigins={PERIOD.excludeOrigins}
+        periodKey="30d:auto"
       />
     ),
     host,

@@ -66,7 +66,6 @@ export const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps
   ) {
     const portalTarget = React.useRef<HTMLDivElement | null>(null);
     const { open } = useDialogContext();
-    const inset = useDrawerEndInset();
     React.useEffect(() => (open ? registerOpenModal() : undefined), [open]);
     const guarded = withErrorBoundary;
     return (
@@ -81,10 +80,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps
         )}
         <FieldLayoutProvider value="stacked">
           <OverlayPortalTargetProvider value={portalTarget}>
-            <ChakraDialog.Positioner
-              paddingEnd={inset > 0 ? { base: 0, md: `${inset}px` } : undefined}
-              {...positionerProps}
-            >
+            <ChakraDialog.Positioner {...positionerProps}>
               <ChakraDialog.Content
                 ref={contentProps.asChild ? mergeRefs(ref, portalTarget) : ref}
                 {...contentProps}
@@ -154,7 +150,10 @@ const DIALOG_WIDTH: Record<DialogSize, string> = {
   document: "64rem",
 };
 
-/** The size cap, kept clear of a docked panel's room from the md breakpoint up. */
+/**
+ * The size cap: from md up it shrinks by a docked panel's width, so a centred dialog is not
+ * mostly hidden under it; it does not fully clear the panel.
+ */
 function dialogMaxWidth({ size, endInset }: { size: DialogSize; endInset: number }) {
   const cap = (room: string) => `min(${DIALOG_WIDTH[size]}, calc(100vw - 2rem${room}))`;
   if (endInset <= 0) return cap("");
@@ -513,7 +512,8 @@ export function Dialog({
   contentRef,
   "data-testid": testId,
 }: DialogProps) {
-  const ownRef = React.useRef<HTMLDivElement>(null);
+  // By id, not a ref: a resuming focus trap calls this mid-commit, while React has refs detached.
+  const contentId = React.useId();
   const endInset = useDrawerEndInset();
   const slot = (name: string) => (testId ? `${testId}-${name}` : undefined);
   const closable = dismissible && !busy;
@@ -531,14 +531,15 @@ export function Dialog({
     throw new Error('Dialog surface="glass" stands on the card ground; drop ground="panel".');
   }
   const pickInitialFocus = () => {
-    const usable = (selector: string) => firstFocusable(ownRef.current, selector);
+    const content = document.getElementById(contentId);
+    const usable = (selector: string) => firstFocusable(content, selector);
     const requested = initialFocus ? usable(`[data-frame-action="${initialFocus}"]`) : null;
     return (
       requested ??
       usable("input, textarea, select") ??
       usable('[data-frame-action="cancel"]') ??
       usable(FOCUSABLE_CONTROLS) ??
-      ownRef.current
+      content
     );
   };
   const resolveInitialFocus = () => initialFocusEl?.() ?? pickInitialFocus();
@@ -589,6 +590,7 @@ export function Dialog({
       trapFocus={trapFocus}
       preventScroll={preventScroll}
       closeOnInteractOutside={closable && closeOnInteractOutside}
+      ids={{ content: contentId }}
       initialFocusEl={resolveInitialFocus}
       finalFocusEl={finalFocusEl}
       onExitComplete={onExitComplete}
@@ -597,7 +599,7 @@ export function Dialog({
       }}
     >
       <DialogContent
-        ref={mergeRefs(ownRef, contentRef)}
+        ref={contentRef}
         maxWidth={dialogMaxWidth({ size, endInset })}
         width="full"
         maxHeight={

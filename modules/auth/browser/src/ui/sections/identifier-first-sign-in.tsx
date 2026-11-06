@@ -15,6 +15,7 @@ import { usePasskeyAutofill } from "../../behavior/use-passkey-autofill.ts";
 import { usePublicEnv } from "../../behavior/use-public-env.ts";
 import { useSearchParams } from "../../behavior/use-route.ts";
 import { useSignInRouting } from "../../behavior/use-sign-in-routing.ts";
+import { ssoHandOffFailureMessage } from "../../model/auth-failure-message.ts";
 import { signUpHref } from "../../model/carried-email.ts";
 import type { FrontDoorDepth } from "../../model/ground-palette.ts";
 import { usePublishFrontDoorStage } from "../../model/ground-stage.ts";
@@ -155,7 +156,7 @@ export function IdentifierFirstSignIn() {
     rememberPendingMethod(method);
     // The typed address rides along as the OIDC login hint, trimmed, so the
     // provider's own screen arrives prefilled.
-    void signIn(method.id, { callbackUrl, loginHint: routing.identifier?.trim() || undefined });
+    return signIn(method.id, { callbackUrl, loginHint: routing.identifier?.trim() || undefined });
   };
 
   const decision = routing.decision;
@@ -235,7 +236,7 @@ export function IdentifierFirstSignIn() {
       <NoAccountYet
         email={creatingAccountFor}
         reasonCode={decision?.outcome === "route_to_signup" ? decision.reasonCode : null}
-        callbackUrl={callbackUrl ?? JOIN_BEFORE_CREATE_PATH}
+        callbackUrl={callbackUrl}
         onAwaitingConfirmation={(email) => {
           setSigningUpEmail(null);
           setSentTo(email);
@@ -395,7 +396,8 @@ function NoAccountYet({
   email: string;
   /** Absent where a refused password found this address, not the router. */
   reasonCode: string | null;
-  callbackUrl: string;
+  /** Where the log-in was going, if anywhere: the sign-up it becomes ends there. */
+  callbackUrl: string | undefined;
   onAwaitingConfirmation: (email: string) => void;
   onAddressAlreadyRegistered: () => void;
   onUseDifferentEmail: () => void;
@@ -425,7 +427,8 @@ function NoAccountYet({
 
   const beginSignUp = async () => {
     try {
-      await requestVerification.mutateAsync({ email });
+      // Rides on the emailed link, so the sign-up it finishes lands where this log-in was going.
+      await requestVerification.mutateAsync({ email, ...(callbackUrl ? { callbackUrl } : {}) });
       onAwaitingConfirmation(email);
     } catch (failure) {
       if (readHandledError(failure)?.code === "email_already_registered") {
@@ -461,12 +464,39 @@ function NoAccountYet({
           Use a different email
         </Button>
         <SignUpLink
-          callbackUrl={callbackUrl}
+          callbackUrl={callbackUrl ?? JOIN_BEFORE_CREATE_PATH}
           email={email}
           label="Rather use the sign-up page? Go there instead"
         />
       </VStack>
     </AuthCard>
+  );
+}
+
+/**
+ * Watches a hand-off's answer. Each start clears the last refusal; a refusal keeps the card up
+ * from then on. A network failure throws rather than answering, and is a refusal all the same.
+ */
+function watchHandOff({
+  handOff,
+  setRefusal,
+  setWaitIsVisible,
+}: {
+  handOff: ReturnType<typeof signIn> | void;
+  setRefusal: (refusal: string | null) => void;
+  setWaitIsVisible: (visible: boolean) => void;
+}): void {
+  setRefusal(null);
+  if (!handOff) return;
+  const refuse = (message: string) => {
+    setWaitIsVisible(true);
+    setRefusal(message);
+  };
+  void handOff.then(
+    (result) => {
+      if (result && result.ok !== true) refuse(ssoHandOffFailureMessage(result));
+    },
+    () => refuse(ssoHandOffFailureMessage({})),
   );
 }
 
@@ -512,7 +542,8 @@ export function RoutedToConnection({
   onAutoStart,
 }: {
   decision: RoutingDecision;
-  onContinue: (method: SignInMethod) => void;
+  /** Starts the hand-off from the button; its answer is watched like the automatic one's. */
+  onContinue: (method: SignInMethod) => ReturnType<typeof signIn> | void;
   callbackUrl?: string;
   /** Handed to the provider as the OIDC login hint, so its screen arrives prefilled. */
   loginHint?: string;
@@ -528,6 +559,8 @@ export function RoutedToConnection({
   const method: SignInMethod | undefined = decision.methodSet[0];
   const dialed = useRef(false);
   const [waitIsVisible, setWaitIsVisible] = useState(false);
+  // A refused start never leaves this page, so it stops the spinner and says so.
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   useEffect(() => {
     if (!autoStart || !method || dialed.current) return;
@@ -535,7 +568,11 @@ export function RoutedToConnection({
     // Parked here too: the people routed by address are the dial nobody presses.
     rememberPendingMethod(method);
     onAutoStart?.();
-    void signIn(method.id, { callbackUrl, loginHint });
+    watchHandOff({
+      handOff: signIn(method.id, { callbackUrl, loginHint }),
+      setRefusal,
+      setWaitIsVisible,
+    });
   }, [autoStart, method, callbackUrl, loginHint, onAutoStart]);
 
   useEffect(() => {
@@ -546,17 +583,25 @@ export function RoutedToConnection({
   if (!method) return null;
   if (autoStart && !waitIsVisible) return null;
 
+  const waiting = autoStart && refusal === null;
   return (
     <AuthCard title={title}>
+      <HandledErrorAlert
+        description={refusal ?? undefined}
+        fallbackTitle="Could not start log-in"
+        testId="routed-to-connection-refused"
+      />
       <HStack gap={3}>
-        {autoStart && <Spinner size="sm" color="orange.fg" />}
+        {waiting && <Spinner size="sm" color="orange.fg" />}
         <Text data-testid="routed-to-connection">
-          {autoStart
+          {waiting
             ? `Taking you to your organization's sign-in with ${signInMethodLabel(method)}.`
             : `Log in with ${signInMethodLabel(method)} to continue.`}
         </Text>
       </HStack>
-      <FrontDoorPrimaryButton onClick={() => onContinue(method)}>
+      <FrontDoorPrimaryButton
+        onClick={() => watchHandOff({ handOff: onContinue(method), setRefusal, setWaitIsVisible })}
+      >
         {signInMethodActionLabel(method)}
       </FrontDoorPrimaryButton>
       {/* The way to the other screen, on this stage as on every other. */}

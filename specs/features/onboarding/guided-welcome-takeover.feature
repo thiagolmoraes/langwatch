@@ -90,10 +90,11 @@ Feature: Guided welcome flow and takeover screens
     Then Next fades in shortly after
 
   @integration
-  Scenario: A user without a first name is greeted as "there"
-    Given my account has no name
+  Scenario: A user without a name is greeted without a placeholder
+    Given my account has no name, or only spaces, or only my email address
     When the hello screen opens
-    Then the greeting starts with "Hello there"
+    Then the greeting types out "Hello, I'm Langy 👋"
+    And it does not call me "there" or by my email address
 
   # ============================================================================
   # Value
@@ -104,6 +105,12 @@ Feature: Guided welcome flow and takeover screens
     Given I said I use LangWatch for my company "ACME"
     When the value screen opens
     Then Langy asks "So tell me, Rogerio, what are the most valuable things we can set up for ACME today?"
+
+  @integration
+  Scenario: The value question leaves the name out when the account has none
+    Given my account has no name
+    When the value screen opens
+    Then Langy asks "So tell me, what are the most valuable things we can set up for ACME today?"
 
   @integration
   Scenario: The value question says "you" when the user is on their own
@@ -299,11 +306,15 @@ Feature: Guided welcome flow and takeover screens
     Then the organization records that the provider was skipped
     And I land on the first pick's page
 
+  # Skip anyway skips the provider step only. The tour is app UI and needs no
+  # model, so the landing still shows the product; Langy asks for a model after
+  # it, inline in the panel (specs/langy/langy-inline-model-setup.feature).
   @integration
-  Scenario: Skip anyway skips the tour as well
+  Scenario: Skip anyway leaves the tour to run
     When the provider skip is recorded
-    Then the organization records the tour as skipped in the same call
-    And the provider skipped and tour skipped events both reach the onboarding event hook
+    Then the organization records the provider skip and nothing else
+    And the tour is not recorded as skipped, so the landing still runs it
+    And only the provider skipped event reaches the onboarding event hook
 
   # ============================================================================
   # Self-hosted
@@ -393,9 +404,9 @@ Feature: Guided welcome flow and takeover screens
     Then I am asked "Are you sure sure?"
     When I confirm with "Skip anyway"
     Then I land on my personal home with the Langy panel open
-    And the panel asks for the model the provider step would have connected
+    And below the tour card Langy asks for the model the provider step would have connected
     And no offer is shown there, because the coding path is the one being guided
-    And the skip is recorded on my organization
+    And the skip is recorded on my organization, with the tour not skipped
 
   @e2e
   Scenario: With the flag off the classic wizard is unchanged

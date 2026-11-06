@@ -5,9 +5,9 @@ import { createLogger } from "@langwatch/observability";
 
 import { classify as classifyEgressAddress } from "./address.ts";
 import {
-  ALLOWLISTABLE_LOCAL_SUFFIXES,
   BLOCKED_CLOUD_DOMAINS,
   BLOCKED_METADATA_HOSTS,
+  ON_PREMISE_SUFFIXES,
 } from "./blocked-hosts.ts";
 
 /**
@@ -24,7 +24,10 @@ export interface SsrfPolicy {
    * Metadata is refused either way.
    */
   blockLocal: boolean;
-  /** Literal hostname allowlist (case-insensitive) that bypasses the local-address block only. */
+  /**
+   * Literal hostname allowlist (case-insensitive) that bypasses the local-address block, and
+   * the `.local` / `.localhost` block for that exact host. Never metadata or a cloud domain.
+   */
   allowedHosts: string[];
 }
 
@@ -121,29 +124,21 @@ export function isBlockedCloudDomain(hostname: string): boolean {
   );
 }
 
-function stripLocalSuffix(hostname: string): string {
-  const suffix = ALLOWLISTABLE_LOCAL_SUFFIXES.find((s) => hostname.endsWith(s));
-  return suffix ? hostname.slice(0, -suffix.length) : hostname;
-}
-
-function matchesCloudOnlyDomain(hostname: string): boolean {
-  return BLOCKED_CLOUD_DOMAINS.filter(
-    (domain) => !ALLOWLISTABLE_LOCAL_SUFFIXES.includes(domain),
-  ).some((domain) => hostname === domain.slice(1) || hostname.endsWith(domain));
-}
+const onPremiseLabels = new Set<string>(ON_PREMISE_SUFFIXES.map((suffix) => suffix.slice(1)));
 
 /**
- * True when only the on-prem suffix (`.local`, `.localhost`) blocks the host,
- * so ALLOWED_PROXY_HOSTS may open it. A hidden cloud label still blocks:
- * `metadata.google.internal.local` reads as `.internal`.
+ * Whether the hostname is a cloud domain only for its on-premise suffix, so the allowlist may
+ * lift it. Every trailing `local` / `localhost` label comes off first, so
+ * `metadata.google.internal.local.localhost` is still read as `metadata.google.internal`.
  */
-export function isAllowlistableLocalDomain(hostname: string): boolean {
-  const lowerHostname = withoutTrailingDot(hostname.toLowerCase());
-  const hasLocalSuffix = ALLOWLISTABLE_LOCAL_SUFFIXES.some((suffix) =>
-    lowerHostname.endsWith(suffix),
-  );
-  if (!hasLocalSuffix) return false;
-  return !matchesCloudOnlyDomain(stripLocalSuffix(lowerHostname));
+function isOnPremiseDomain(hostname: string): boolean {
+  const labels = hostname.split(".");
+  if (labels.length < 2 || labels.includes("")) return false;
+  if (!onPremiseLabels.has(labels.at(-1)!)) return false;
+
+  while (labels.length > 1 && onPremiseLabels.has(labels.at(-1)!)) labels.pop();
+  const rest = labels.join(".");
+  return !isBlockedCloudDomain(rest) && !isCloudMetadataHost(rest);
 }
 
 /**
@@ -336,8 +331,9 @@ function isAllowlisted(ctx: ValidationContext, policy: SsrfPolicy): boolean {
 }
 
 /**
- * The allowlist relaxes the private-range refusal only: the name is still
- * resolved, refused if any address is metadata, and pinned to what it resolved to.
+ * The allowlist relaxes the private-range refusal and, for an on-premise host, the `.local` /
+ * `.localhost` one: the name is still resolved, refused if any address is metadata, and pinned
+ * to what it resolved to.
  */
 async function resolveAllowlisted(ctx: ValidationContext): Promise<SsrfAllowlistedResult> {
   logger.info({ url: ctx.logUrl, hostname: ctx.hostname }, "Allowing request to allowlisted host");
@@ -378,17 +374,13 @@ export function createSsrfUrlValidator(policy: SsrfPolicy): SsrfUrlValidator {
     const logUrl = redactUrlForLog(url);
     const ctx: ValidationContext = { url, logUrl, parsedUrl, hostname, requestHost, port, path };
 
-    // Metadata: always refused, before anything an operator can relax.
+    // Always refused, before anything an operator can relax is consulted. The one exception is
+    // an on-premise host the operator named exactly.
     validateNotMetadataEndpoint(ctx);
+    const allowlisted = isAllowlisted(ctx, policy);
+    if (!(allowlisted && isOnPremiseDomain(hostname))) validateNotBlockedCloudDomain(ctx);
 
-    // Cloud domains: refused before the allowlist, so never allowlistable.
-    // On-prem .local/.localhost wait for the allowlist check below.
-    if (!isAllowlistableLocalDomain(hostname)) validateNotBlockedCloudDomain(ctx);
-
-    if (isAllowlisted(ctx, policy)) return resolveAllowlisted(ctx);
-
-    // On-prem host not in the allowlist: still blocked.
-    validateNotBlockedCloudDomain(ctx);
+    if (allowlisted) return resolveAllowlisted(ctx);
 
     const ipVersion = isIP(hostname);
     if (ipVersion !== 0) {

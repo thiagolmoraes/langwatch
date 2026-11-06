@@ -10,6 +10,7 @@ import type { WidgetFace } from "../../../../model/dashboard-widget/widget-compl
 import { DashboardWidgetFrameOverWindow } from "../../../dashboard-widget/ui/sections/dashboard-widget-frame.tsx";
 import { useWidgetCsvExport } from "../../behavior/use-widget-csv-export.ts";
 import type { BoardPeriod } from "../../model/board-period.ts";
+import { widgetSourcesLine } from "../../model/widget-sources.ts";
 import type { BoardTemplateWidget } from "../../templates/index.ts";
 import { AskLangyButton } from "../blocks/ask-langy-button.tsx";
 import { WidgetCardShell, widgetBodyHeightPx } from "../blocks/widget-card-shell.tsx";
@@ -24,8 +25,10 @@ export function CuratedWidgetCard({
   rowSpan,
   timeWindow,
   granularitySeconds,
-  excludeOrigins,
+  periodKey,
   onAskLangy,
+  onEmptyChange,
+  onLimitFailureChange,
 }: {
   widget: BoardTemplateWidget;
   /** The frame's id on this board: the template's id and the widget's key. */
@@ -37,10 +40,14 @@ export function CuratedWidgetCard({
   rowSpan: number;
   timeWindow: { start: number; end: number };
   granularitySeconds: BoardPeriod["granularitySeconds"];
-  /** Trace origins the board leaves out of every query this widget runs. */
-  excludeOrigins: readonly string[];
+  /** The reader's chosen period, such as "1h:auto"; only a new choice restarts the widget. */
+  periodKey: string;
   /** Drafts a prompt about the widget in Langy; absent when Langy is not available. */
   onAskLangy?: () => void;
+  /** Told whether the card shows none of the widget's data. */
+  onEmptyChange?: (empty: boolean) => void;
+  /** Told whether the card's final failure is a resource limit. */
+  onLimitFailureChange?: (limited: boolean) => void;
 }) {
   const { name, definition } = widget;
   const [face, setFace] = useState<WidgetFace["kind"]>("chart");
@@ -52,6 +59,7 @@ export function CuratedWidgetCard({
     <WidgetCardShell
       name={name}
       description={definition.description}
+      footer={widgetSourcesLine(definition.queries)}
       controls={
         hasControls && (
           <>
@@ -70,9 +78,12 @@ export function CuratedWidgetCard({
         maxHeight={widgetBodyHeightPx(rowSpan)}
         timeWindow={timeWindow}
         granularitySeconds={granularitySeconds}
-        excludeOrigins={excludeOrigins}
+        periodKey={periodKey}
         onFaceChange={setFace}
+        limitAudience={{ kind: "built_in" }}
         onExportChange={csvExport.onExportChange}
+        onEmptyChange={onEmptyChange}
+        onLimitFailureChange={onLimitFailureChange}
       />
     </WidgetCardShell>
   );

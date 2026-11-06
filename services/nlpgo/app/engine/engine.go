@@ -206,11 +206,14 @@ type NodeHTTP struct {
 // cost figure; the consumer multiplies tokens by the model rate (the same path
 // the trace-ingest collector uses), keeping a single source of truth for cost.
 type NodeMetrics struct {
-	PromptTokens     int    `json:"prompt_tokens,omitempty"`
-	CompletionTokens int    `json:"completion_tokens,omitempty"`
-	TotalTokens      int    `json:"total_tokens,omitempty"`
-	ReasoningTokens  int    `json:"reasoning_tokens,omitempty"`
-	Model            string `json:"model,omitempty"`
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
+	CompletionTokens int `json:"completion_tokens,omitempty"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
+	ReasoningTokens  int `json:"reasoning_tokens,omitempty"`
+	// Subsets of PromptTokens; the consumer prices them at the cache rates.
+	CacheReadInputTokens     int    `json:"cache_read_input_tokens,omitempty"`
+	CacheCreationInputTokens int    `json:"cache_creation_input_tokens,omitempty"`
+	Model                    string `json:"model,omitempty"`
 }
 
 // NodeError is the structured error attached to a failed node.
@@ -706,6 +709,14 @@ func (e *Engine) runHTTP(ctx context.Context, node *dsl.Node, inputs map[string]
 		if errors.Is(err, httpblock.ErrSSRFBlocked) {
 			return nil, &NodeError{Type: "ssrf_blocked", Message: msg}
 		}
+		// The upstream answered; its reply has nothing at the output path.
+		if errors.Is(err, httpblock.ErrNoMatch) {
+			// The author fixes the path by reading the reply it missed.
+			if ns.HTTP != nil {
+				ns.HTTP.ResponseBody = redactSecrets(string(res.UpstreamBody), secrets)
+			}
+			return nil, &NodeError{Type: "jsonpath_no_match", Message: msg}
+		}
 		return nil, &NodeError{Type: "http_error", Message: msg}
 	}
 	out := make(map[string]any, 1)
@@ -828,14 +839,18 @@ func (e *Engine) runSignature(ctx context.Context, node *dsl.Node, inputs map[st
 	// consumer apply the model rate (the gateway returns no cost on this path).
 	// Use the provider/model form (matching the cost table keys + the LLM span
 	// name) so the consumer's model-cost lookup hits the right entry.
-	if u := resp.Usage; u.TotalTokens > 0 || u.PromptTokens > 0 || u.CompletionTokens > 0 {
+	if u := resp.Usage; u.TotalTokens > 0 || u.PromptTokens > 0 || u.CompletionTokens > 0 ||
+		u.CacheReadInputTokens > 0 || u.CacheCreationInputTokens > 0 {
 		metricsModel := modelID(model, provider)
 		ns.Metrics = &NodeMetrics{
 			PromptTokens:     u.PromptTokens,
 			CompletionTokens: u.CompletionTokens,
 			TotalTokens:      u.TotalTokens,
 			ReasoningTokens:  u.ReasoningTokens,
-			Model:            metricsModel,
+
+			CacheReadInputTokens:     u.CacheReadInputTokens,
+			CacheCreationInputTokens: u.CacheCreationInputTokens,
+			Model:                    metricsModel,
 		}
 	}
 	if useStructured {

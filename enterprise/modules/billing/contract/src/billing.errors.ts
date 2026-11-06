@@ -52,6 +52,20 @@ export class InvalidPlanError extends HandledError {
   }
 }
 
+/** A seat count below the minimum: the full seats in use, and never below one. */
+export class SeatQuantityBelowInUseError extends HandledError {
+  declare readonly code: "seat_quantity_below_in_use";
+
+  constructor({ requested, minimum }: { requested: number; minimum: number }) {
+    super("seat_quantity_below_in_use", `Seats can't go below ${minimum}`, {
+      httpStatus: 422,
+      fault: "customer",
+      meta: { requested, minimum },
+    });
+    this.name = "SeatQuantityBelowInUseError";
+  }
+}
+
 /** Seat billing not configured; platform fault, not provider. */
 export class SeatBillingUnavailableError extends HandledError {
   declare readonly code: "seat_billing_unavailable";
@@ -167,6 +181,20 @@ export class SubscriptionCreationFailedError extends HandledError {
       { httpStatus: 500, fault: "platform" },
     );
     this.name = "SubscriptionCreationFailedError";
+  }
+}
+
+/** A checkout asked for on a live subscription: changing that one is the billing portal's. */
+export class SubscriptionAlreadyActiveError extends HandledError {
+  declare readonly code: "subscription_already_active";
+
+  constructor() {
+    super(
+      "subscription_already_active",
+      "This organization already has an active subscription; nothing was charged",
+      { httpStatus: 409, fault: "customer" },
+    );
+    this.name = "SubscriptionAlreadyActiveError";
   }
 }
 

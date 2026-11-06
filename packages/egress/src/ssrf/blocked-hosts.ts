@@ -1,8 +1,14 @@
 /**
- * The host patterns refused whatever the local-address policy says. FROZEN
- * TWIN of `platform/app/src/utils/ssrfConstants.ts`.
- * Fork note: `.local`/`.localhost` can be opened per host via ALLOWED_PROXY_HOSTS.
+ * The host patterns refused whatever the local-address policy says. The Go scenario runner
+ * carries the same lists in `services/scenariorunner/egress/validator.go`; change both together.
  */
+
+/**
+ * The BLOCKED_CLOUD_DOMAINS suffixes the allowlist may lift for one exact host: private
+ * infrastructure, no ambient credentials. Every other suffix stays refused before the allowlist
+ * is read. Extend only with suffixes meaningless outside a private network.
+ */
+export const ON_PREMISE_SUFFIXES = [".local", ".localhost"] as const;
 
 /**
  * Cloud provider internal domain patterns to block. Matched as suffixes, so `.amazonaws.com`
@@ -17,18 +23,9 @@ export const BLOCKED_CLOUD_DOMAINS = [
   // Generic internal domains (catch-all for misconfigured services)
   ".internal",
 
-  // On-prem suffixes. Blocked by default, but an operator can open one exact
-  // host via ALLOWED_PROXY_HOSTS. See ALLOWLISTABLE_LOCAL_SUFFIXES.
-  ".local",
-  ".localhost",
+  // Blocked by default; ALLOWED_PROXY_HOSTS may name one exact host under them.
+  ...ON_PREMISE_SUFFIXES,
 ] as const;
-
-/**
- * Suffixes ALLOWED_PROXY_HOSTS can re-open, one exact host at a time. On-prem
- * names, no cloud credentials behind them (`llm.corp.local`). Every other
- * suffix above stays blocked. Only add suffixes meaningless outside a LAN.
- */
-export const ALLOWLISTABLE_LOCAL_SUFFIXES: readonly string[] = [".local", ".localhost"];
 
 /**
  * Cloud metadata endpoint hostnames and IPs to block. These endpoints hand out instance

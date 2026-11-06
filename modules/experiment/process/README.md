@@ -6,7 +6,7 @@ The server half of [experiment](../README.md). Experiments: saved definitions, t
 
 ## Installation
 
-`defineProcessModule("experiment").withRepositories(experimentRepositories).withApi(ExperimentModule).withTransports(experimentV3Rest, experimentRest, experimentInitRest, experimentDspyStepsRest, experimentWorkbenchRunRest, experimentV3LegacyRest, experimentWorkbenchRunLegacyRest, experimentBatchLogRest, experimentDatasetEvaluationRest, experimentWorkflowEvaluationRest, experimentTrpcTransport, batchRecordTrpcTransport).provideMiddlewareContext(…).withEventing(experimentRunProcessingEventing).withEventing(experimentLifecycleEventing)`, `src/experiment.module.ts:37`.
+`defineProcessModule("experiment").withRepositories(experimentRepositories).withApi(ExperimentModule).withTransports(experimentV3Rest, experimentRest, experimentInitRest, experimentDspyStepsRest, experimentWorkbenchRunRest, experimentV3LegacyRest, experimentWorkbenchRunLegacyRest, experimentBatchLogRest, experimentDatasetEvaluationRest, experimentWorkflowEvaluationRest, experimentTrpcTransport, batchRecordTrpcTransport).provideMiddlewareContext(…).withEventing(experimentRunProcessingEventing).withEventing(experimentLifecycleEventing).withIdIndexes(EXPERIMENT_ID_INDEXES, …).withIdIndexes(EXPERIMENT_SECOND_ID_INDEXES, …)`, `src/experiment.module.ts:41`.
 
 Installed by api, worker, tasks, from each app's generated module list (`pnpm generate:modules`).
 
@@ -474,9 +474,9 @@ Permission `evaluations:manage`. Declared at `src/transport/experiment-batch-log
 Answers at `/api/evaluations/batch/log_results`, `/api/v1/evaluations/batch/log_results`.
 
 ```typescript
-// Body: inline, src/transport/experiment-batch-log.rest.ts:74
+// Body: inline, src/transport/experiment-batch-log.rest.ts:75
 type Body = Record<string, unknown>;
-// Response: inline, src/transport/experiment-batch-log.rest.ts:78
+// Response: inline, src/transport/experiment-batch-log.rest.ts:79
 type Response = unknown;
 ```
 
@@ -498,9 +498,9 @@ Permission `evaluations:manage`. Declared at `src/transport/experiment-dataset-e
 Answers at `/api/dataset/evaluate`, `/api/v1/dataset/evaluate`.
 
 ```typescript
-// Body: inline, src/transport/experiment-dataset-evaluation.rest.ts:64
+// Body: inline, src/transport/experiment-dataset-evaluation.rest.ts:65
 type Body = Record<string, unknown>;
-// Response: inline, src/transport/experiment-dataset-evaluation.rest.ts:68
+// Response: inline, src/transport/experiment-dataset-evaluation.rest.ts:69
 type Response = unknown;
 ```
 
@@ -584,14 +584,14 @@ Answers at `/api/evaluations/v3/:evaluationSlug/run`.
 interface Params {
   evaluationSlug: string;
 }
-// Rawbody: "text" (inline, src/transport/experiment-v3-legacy.rest.ts:53)
-// Response: inline, src/transport/experiment-v3-legacy.rest.ts:57
+// Rawbody: "text" (inline, src/transport/experiment-v3-legacy.rest.ts:54)
+// Response: inline, src/transport/experiment-v3-legacy.rest.ts:58
 type Response = unknown;
 ```
 
 #### `GET /runs` · `getApiEvaluationsV3Runs`
 
-Permission `evaluations:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:74`.
+Permission `evaluations:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:75`.
 
 Answers at `/api/evaluations/v3/runs`.
 
@@ -606,7 +606,7 @@ interface Query {
 
 #### `GET /runs/:runId` · `getApiEvaluationsV3RunsByRunId`
 
-Permission `evaluations:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:81`.
+Permission `evaluations:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:82`.
 
 Answers at `/api/evaluations/v3/runs/:runId`.
 
@@ -620,7 +620,7 @@ type Response = z.infer<typeof runStatusResponseSchema>; // ../contract/src/expe
 
 #### `GET /runs/:runId/results` · `getApiEvaluationsV3RunsByRunIdResults`
 
-Permission `evaluations:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:88`.
+Permission `evaluations:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:89`.
 
 Answers at `/api/evaluations/v3/runs/:runId/results`.
 
@@ -635,7 +635,7 @@ type Response = z.infer<typeof runResultsResponseSchema>; // ../contract/src/exp
 
 #### `GET /:evaluationSlug/workbench-state` · `getApiEvaluationsV3BySlugWorkbenchState`
 
-Permission `experiments:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:96`.
+Permission `experiments:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:97`.
 
 Answers at `/api/evaluations/v3/:evaluationSlug/workbench-state`.
 
@@ -658,7 +658,7 @@ interface Response {
 
 #### `PUT /:evaluationSlug/workbench-state` · `putApiEvaluationsV3BySlugWorkbenchState`
 
-Permission `experiments:update`. Declared at `src/transport/experiment-v3-legacy.rest.ts:110`.
+Permission `experiments:update`. Declared at `src/transport/experiment-v3-legacy.rest.ts:111`.
 
 Answers at `/api/evaluations/v3/:evaluationSlug/workbench-state`.
 
@@ -678,7 +678,7 @@ interface Response {
 
 #### `GET /:evaluationSlug/versions` · `getApiEvaluationsV3BySlugVersions`
 
-Permission `experiments:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:125`.
+Permission `experiments:view`. Declared at `src/transport/experiment-v3-legacy.rest.ts:127`.
 
 Answers at `/api/evaluations/v3/:evaluationSlug/versions`.
 
@@ -694,7 +694,7 @@ type Response = z.infer<typeof listWorkbenchVersionsResponseSchema>; // ../contr
 
 #### `POST /:evaluationSlug/versions/:version/restore` · `postApiEvaluationsV3BySlugVersionsByVersionRestore`
 
-Permission `experiments:update`. Declared at `src/transport/experiment-v3-legacy.rest.ts:135`.
+Permission `experiments:update`. Declared at `src/transport/experiment-v3-legacy.rest.ts:137`.
 
 Answers at `/api/evaluations/v3/:evaluationSlug/versions/:version/restore`.
 
@@ -716,36 +716,36 @@ interface Response {
 
 |             |                                                  |
 | ----------- | ------------------------------------------------ |
-| Declared at | `src/transport/experiment-v3-legacy.rest.ts:158` |
+| Declared at | `src/transport/experiment-v3-legacy.rest.ts:161` |
 | Base URL    | `/api/evaluations/v3`                            |
 | Addressing  | v1-in-path                                       |
 | Credential  | browser                                          |
 
 #### `POST /execute` · `executeEvaluationsV3Experiment`
 
-Permission `evaluations:manage`. Declared at `src/transport/experiment-v3-legacy.rest.ts:164`.
+Permission `evaluations:manage`. Declared at `src/transport/experiment-v3-legacy.rest.ts:167`.
 
 Answers at `/api/evaluations/v3/execute`.
 
 ```typescript
-type Body = z.infer<typeof executionRequestSchema>; // ../contract/src/workbench/execution/types.ts:219
-// Response: inline, src/transport/experiment-v3-legacy.rest.ts:168
+type Body = z.infer<typeof executionRequestSchema>; // ../contract/src/workbench/execution/types.ts:221
+// Response: inline, src/transport/experiment-v3-legacy.rest.ts:172
 type Response = unknown;
 ```
 
 #### `POST /abort` · `abortEvaluationsV3ExperimentRun`
 
-Permission `evaluations:manage`. Declared at `src/transport/experiment-v3-legacy.rest.ts:174`.
+Permission `evaluations:manage`. Declared at `src/transport/experiment-v3-legacy.rest.ts:178`.
 
 Answers at `/api/evaluations/v3/abort`.
 
 ```typescript
-// Body: abortExperimentRunRequestSchema, ../contract/src/workbench/execution/types.ts:230
+// Body: abortExperimentRunRequestSchema, ../contract/src/workbench/execution/types.ts:232
 interface Body {
   projectId: string;
   runId: string;
 }
-// Response: abortExperimentRunResponseSchema, ../contract/src/workbench/execution/types.ts:241
+// Response: abortExperimentRunResponseSchema, ../contract/src/workbench/execution/types.ts:243
 interface Response {
   success: true;
   runId: string;
@@ -776,8 +776,8 @@ Answers at `/api/experiments/:slug/run`, `/api/v1/experiments/:slug/run`; also, 
 interface Params {
   slug: string;
 }
-// Rawbody: "text" (inline, src/transport/experiment-v3.rest.ts:93)
-// Response: inline, src/transport/experiment-v3.rest.ts:97
+// Rawbody: "text" (inline, src/transport/experiment-v3.rest.ts:94)
+// Response: inline, src/transport/experiment-v3.rest.ts:98
 type Response = unknown;
 ```
 
@@ -785,7 +785,7 @@ type Response = unknown;
 
 List runs of an experiment
 
-Permission `evaluations:view`. Declared at `src/transport/experiment-v3.rest.ts:141`.
+Permission `evaluations:view`. Declared at `src/transport/experiment-v3.rest.ts:145`.
 
 Answers at `/api/experiments/runs`, `/api/v1/experiments/runs`; also, undocumented, `/api/experiments/2026-08-07/runs`, `/api/v1/experiments/2026-08-07/runs`, `/api/experiments/latest/runs`, `/api/v1/experiments/latest/runs`.
 
@@ -797,7 +797,7 @@ type Query = z.infer<typeof listRunsQuerySchema>; // ../contract/src/experiment-
 
 Poll a run
 
-Permission `evaluations:view`. Declared at `src/transport/experiment-v3.rest.ts:166`.
+Permission `evaluations:view`. Declared at `src/transport/experiment-v3.rest.ts:170`.
 
 Answers at `/api/experiments/runs/:runId`, `/api/v1/experiments/runs/:runId`; also, undocumented, `/api/experiments/2026-08-07/runs/:runId`, `/api/v1/experiments/2026-08-07/runs/:runId`, `/api/experiments/latest/runs/:runId`, `/api/v1/experiments/latest/runs/:runId`.
 
@@ -810,7 +810,7 @@ type Response = z.infer<typeof runStatusResponseSchema>; // ../contract/src/expe
 
 Read run results
 
-Permission `evaluations:view`. Declared at `src/transport/experiment-v3.rest.ts:183`.
+Permission `evaluations:view`. Declared at `src/transport/experiment-v3.rest.ts:187`.
 
 Answers at `/api/experiments/runs/:runId/results`, `/api/v1/experiments/runs/:runId/results`; also, undocumented, `/api/experiments/2026-08-07/runs/:runId/results`, `/api/v1/experiments/2026-08-07/runs/:runId/results`, `/api/experiments/latest/runs/:runId/results`, `/api/v1/experiments/latest/runs/:runId/results`.
 
@@ -824,7 +824,7 @@ type Response = z.infer<typeof runResultsResponseSchema>; // ../contract/src/exp
 
 Read an experiment's setup
 
-Permission `experiments:view`. Declared at `src/transport/experiment-v3.rest.ts:207`.
+Permission `experiments:view`. Declared at `src/transport/experiment-v3.rest.ts:211`.
 
 Answers at `/api/experiments/:slug/workbench-state`, `/api/v1/experiments/:slug/workbench-state`; also, undocumented, `/api/experiments/2026-08-07/:slug/workbench-state`, `/api/v1/experiments/2026-08-07/:slug/workbench-state`, `/api/experiments/latest/:slug/workbench-state`, `/api/v1/experiments/latest/:slug/workbench-state`.
 
@@ -838,7 +838,7 @@ type Response = z.infer<typeof workbenchStateAnswerSchema>; // ../contract/src/e
 
 Save an experiment's setup
 
-Permission `experiments:update`. Declared at `src/transport/experiment-v3.rest.ts:230`.
+Permission `experiments:update`. Declared at `src/transport/experiment-v3.rest.ts:234`.
 
 Answers at `/api/experiments/:slug/workbench-state`, `/api/v1/experiments/:slug/workbench-state`; also, undocumented, `/api/experiments/2026-08-07/:slug/workbench-state`, `/api/v1/experiments/2026-08-07/:slug/workbench-state`, `/api/experiments/latest/:slug/workbench-state`, `/api/v1/experiments/latest/:slug/workbench-state`.
 
@@ -852,7 +852,7 @@ type Response = z.infer<typeof saveWorkbenchStateResponseSchema>; // ../contract
 
 List an experiment's versions
 
-Permission `experiments:view`. Declared at `src/transport/experiment-v3.rest.ts:263`.
+Permission `experiments:view`. Declared at `src/transport/experiment-v3.rest.ts:268`.
 
 Answers at `/api/experiments/:slug/versions`, `/api/v1/experiments/:slug/versions`; also, undocumented, `/api/experiments/2026-08-07/:slug/versions`, `/api/v1/experiments/2026-08-07/:slug/versions`, `/api/experiments/latest/:slug/versions`, `/api/v1/experiments/latest/:slug/versions`.
 
@@ -866,7 +866,7 @@ type Response = z.infer<typeof listWorkbenchVersionsResponseSchema>; // ../contr
 
 Restore an experiment version
 
-Permission `experiments:update`. Declared at `src/transport/experiment-v3.rest.ts:286`.
+Permission `experiments:update`. Declared at `src/transport/experiment-v3.rest.ts:291`.
 
 Answers at `/api/experiments/:slug/versions/:version/restore`, `/api/v1/experiments/:slug/versions/:version/restore`; also, undocumented, `/api/experiments/2026-08-07/:slug/versions/:version/restore`, `/api/v1/experiments/2026-08-07/:slug/versions/:version/restore`, `/api/experiments/latest/:slug/versions/:version/restore`, `/api/v1/experiments/latest/:slug/versions/:version/restore`.
 
@@ -897,20 +897,20 @@ Permission `evaluations:manage`. Hidden from the OpenAPI document. Declared at `
 Answers at `/api/experiments/execute`, `/api/v1/experiments/execute`; also, undocumented, `/api/experiments/2026-08-07/execute`, `/api/v1/experiments/2026-08-07/execute`, `/api/experiments/latest/execute`, `/api/v1/experiments/latest/execute`.
 
 ```typescript
-type Body = z.infer<typeof executionRequestSchema>; // ../contract/src/workbench/execution/types.ts:219
-// Response: inline, src/transport/experiment-workbench-run.rest.ts:28
+type Body = z.infer<typeof executionRequestSchema>; // ../contract/src/workbench/execution/types.ts:221
+// Response: inline, src/transport/experiment-workbench-run.rest.ts:29
 type Response = unknown;
 ```
 
 #### `POST /abort` · `abortExperimentRun`
 
-Permission `evaluations:manage`. Hidden from the OpenAPI document. Declared at `src/transport/experiment-workbench-run.rest.ts:35`.
+Permission `evaluations:manage`. Hidden from the OpenAPI document. Declared at `src/transport/experiment-workbench-run.rest.ts:36`.
 
 Answers at `/api/experiments/abort`, `/api/v1/experiments/abort`; also, undocumented, `/api/experiments/2026-08-07/abort`, `/api/v1/experiments/2026-08-07/abort`, `/api/experiments/latest/abort`, `/api/v1/experiments/latest/abort`.
 
 ```typescript
-type Body = z.infer<typeof abortExperimentRunRequestSchema>; // ../contract/src/workbench/execution/types.ts:230
-type Response = z.infer<typeof abortExperimentRunResponseSchema>; // ../contract/src/workbench/execution/types.ts:241
+type Body = z.infer<typeof abortExperimentRunRequestSchema>; // ../contract/src/workbench/execution/types.ts:232
+type Response = z.infer<typeof abortExperimentRunResponseSchema>; // ../contract/src/workbench/execution/types.ts:243
 ```
 
 ### `experimentWorkflowEvaluationRest`
@@ -925,7 +925,7 @@ type Response = z.infer<typeof abortExperimentRunResponseSchema>; // ../contract
 
 #### `POST /:id/evaluate` · `postApiWorkflowsByIdEvaluate`
 
-Trigger an evaluation run of a workflow's committed version through the evaluations pipeline. Evaluate the workflow's attached dataset, inline data, or a platform dataset id; parameters bind as constant entry inputs on every row. Returns a run id and a results URL to poll or open in the browser.
+Trigger an evaluation run of a workflow's committed version through the evaluations pipeline. Evaluate the workflow's attached dataset, inline data, or a platform dataset id; parameters bind as constant entry inputs on every row. A saved dataset is read at `dataset_version` when given, else its current content is saved as a new version. Returns a run id and a results URL to poll or open in the browser.
 
 Permission `workflows:create or evaluations:view`. Declared at `src/transport/experiment-workflow-evaluation.rest.ts:36`.
 
@@ -936,11 +936,12 @@ Answers at `/api/workflows/:id/evaluate`, `/api/v1/workflows/:id/evaluate`; also
 interface Params {
   id: string;
 }
-// Body: experimentWorkflowEvaluateSchema, ../contract/src/experiment-workflow-evaluation-rest.ts:61
+// Body: experimentWorkflowEvaluateSchema, ../contract/src/experiment-workflow-evaluation-rest.ts:73
 interface Body {
   version_id?: string;
   data?: Record<string, unknown>[];
   dataset_id?: string;
+  dataset_version?: number;
   parameters?: Record<string, string | number | boolean>;
   row_indices?: number[];
 }
@@ -1039,7 +1040,7 @@ Contract `../contract/src/batch-record.trpc.ts:25`, router `src/transport/batch-
 
 ```typescript
 // batchRecord.getAllByexperimentIdGroup
-// Input: datasetApiProjectInputSchema, ../../dataset/contract/src/dataset.schemas.ts:67
+// Input: datasetApiProjectInputSchema, ../../dataset/contract/src/dataset.schemas.ts:69
 interface Input {
   projectId: string;
 }

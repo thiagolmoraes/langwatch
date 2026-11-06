@@ -2,7 +2,7 @@ import dns from "node:dns/promises";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createSsrfUrlValidator, isAllowlistableLocalDomain } from "../url-validator.ts";
+import { createSsrfUrlValidator } from "../url-validator.ts";
 
 /**
  * Spec: specs/security/ssrf-blocking.feature
@@ -92,6 +92,70 @@ describe("SSRF blocking via BLOCK_LOCAL_HTTP_CALLS toggle (TS half)", () => {
     });
   });
 
+  describe("given ALLOWED_PROXY_HOSTS names an on-premise .local host", () => {
+    const validate = createSsrfUrlValidator({
+      blockLocal: true,
+      allowedHosts: ["llm.corp.local"],
+    });
+
+    /** @scenario An allowlisted on-premise .local host is reachable */
+    it("admits that exact host and pins the address it resolved to", async () => {
+      resolvesTo({ a: ["10.0.5.9"] });
+
+      await expect(validate("http://llm.corp.local/v1/chat")).resolves.toMatchObject({
+        type: "allowlisted",
+        resolvedIp: "10.0.5.9",
+      });
+    });
+
+    /** @scenario An allowlisted on-premise .local host is reachable */
+    it("admits it spelled with a trailing dot", async () => {
+      resolvesTo({ a: ["10.0.5.9"] });
+
+      await expect(validate("http://llm.corp.local./v1/chat")).resolves.toMatchObject({
+        type: "allowlisted",
+      });
+    });
+
+    /** @scenario A .local host the allowlist does not name stays refused */
+    it("still refuses a .local host the allowlist does not name", async () => {
+      await expect(validate("http://other.corp.local/api")).rejects.toThrow(
+        /cloud provider internal domains/i,
+      );
+    });
+  });
+
+  describe("given ALLOWED_PROXY_HOSTS names a cloud internal domain", () => {
+    /** @scenario A cloud internal domain cannot be allowlisted */
+    it.each(["s3.amazonaws.com", "ip-10-0-0-1.ec2.compute.internal", "grafana.internal"])(
+      "refuses %s",
+      async (hostname) => {
+        const validate = createSsrfUrlValidator({ blockLocal: true, allowedHosts: [hostname] });
+        await expect(validate(`http://${hostname}/`)).rejects.toThrow(
+          /cloud provider internal domains/i,
+        );
+      },
+    );
+
+    /** @scenario A cloud internal domain with an on-premise suffix added cannot be allowlisted */
+    it.each([
+      "metadata.google.internal.local",
+      "metadata.google.internal.local.local",
+      "s3.amazonaws.com.localhost.local",
+      "s3.amazonaws.com.local.localhost",
+      "grafana.internal.local",
+      "metadata.google.internal..local",
+      "s3.amazonaws.com..local",
+      "metadata.local",
+      "metadata.goog.local",
+    ])("refuses %s", async (hostname) => {
+      const validate = createSsrfUrlValidator({ blockLocal: true, allowedHosts: [hostname] });
+      await expect(validate(`http://${hostname}/`)).rejects.toThrow(
+        /cloud provider internal domains/i,
+      );
+    });
+  });
+
   describe("given a cloud metadata host", () => {
     /** @scenario <impl> blocks cloud metadata even when BLOCK_LOCAL_HTTP_CALLS is "false" */
     it.each(["169.254.169.254", "metadata.google.internal"])(
@@ -111,84 +175,6 @@ describe("SSRF blocking via BLOCK_LOCAL_HTTP_CALLS toggle (TS half)", () => {
       await expect(validate("http://169.254.169.254/latest/meta-data/")).rejects.toThrow(
         /metadata/i,
       );
-    });
-  });
-  describe("given ALLOWED_PROXY_HOSTS names an on-premise .local host", () => {
-    const validate = createSsrfUrlValidator({
-      blockLocal: true,
-      allowedHosts: ["llm.corp.local", "Box.Corp.Localhost"],
-    });
-
-    /** @scenario TS allows an allowlisted on-premise .local host */
-    it("admits the allowlisted .local host", async () => {
-      resolvesTo({ a: ["10.0.5.3"] });
-      await expect(validate("http://llm.corp.local/v1/chat")).resolves.toMatchObject({
-        type: "allowlisted",
-        resolvedIp: "10.0.5.3",
-      });
-    });
-
-    it("admits an allowlisted .localhost host, case-insensitive", async () => {
-      resolvesTo({ a: ["127.0.0.1"] });
-      await expect(validate("http://box.corp.localhost/")).resolves.toMatchObject({
-        type: "allowlisted",
-      });
-    });
-
-    /** @scenario TS still blocks a .local host that is not allowlisted */
-    it("still refuses a .local host the allowlist does not name", async () => {
-      resolvesTo({ a: ["10.0.5.4"] });
-      await expect(validate("http://other.corp.local/api")).rejects.toThrow(
-        /cloud provider internal domains/i,
-      );
-    });
-
-    it("still refuses an allowlisted .local host that resolves to metadata", async () => {
-      resolvesTo({ a: ["169.254.169.254"] });
-      await expect(validate("http://llm.corp.local/")).rejects.toThrow(/metadata/i);
-    });
-  });
-
-  describe("given ALLOWED_PROXY_HOSTS names a cloud internal domain", () => {
-    /** @scenario TS refuses to allowlist a cloud internal domain */
-    it("refuses it anyway", async () => {
-      const validate = createSsrfUrlValidator({
-        blockLocal: true,
-        allowedHosts: ["s3.amazonaws.com"],
-      });
-      await expect(validate("http://s3.amazonaws.com/bucket")).rejects.toThrow(
-        /cloud provider internal domains/i,
-      );
-    });
-
-    /** @scenario TS refuses a cloud internal domain dressed up with a .local suffix */
-    it("refuses a cloud label hidden before a .local suffix", async () => {
-      const validate = createSsrfUrlValidator({
-        blockLocal: true,
-        allowedHosts: ["metadata.google.internal.local"],
-      });
-      await expect(
-        validate("http://metadata.google.internal.local/computeMetadata/v1/"),
-      ).rejects.toThrow(/cloud provider internal domains/i);
-    });
-  });
-});
-
-describe("isAllowlistableLocalDomain()", () => {
-  describe("given a hostname", () => {
-    it.each([
-      ["llm.corp.local", true],
-      ["llm.corp.local.", true],
-      ["LLM.Corp.LOCAL", true],
-      ["box.localhost", true],
-      ["foo.compute.internal.local", false],
-      ["bucket.s3.amazonaws.com.local", false],
-      ["internal.local", false],
-      ["llm.corp.lan", false],
-      ["s3.amazonaws.com", false],
-      ["notlocal", false],
-    ])("%s -> %s", (hostname, expected) => {
-      expect(isAllowlistableLocalDomain(hostname)).toBe(expected);
     });
   });
 });

@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  * Identifier-first sign-in renders routing decisions; holds no routing logic.
+ * @see modules/auth/specs/forced-password-reset.feature
  */
 import { renderWithDesignSystem } from "@langwatch/design-system/testing";
 import type { RoutingDecision, SignInMethod } from "@langwatch/identity-contract";
@@ -15,6 +16,7 @@ const {
   registerMock,
   signInMock,
   replaceMock,
+  hardNavigateMock,
   sessionRef,
   searchParamsRef,
   publicEnvRef,
@@ -24,8 +26,9 @@ const {
   routeErrorRef: { current: null as unknown },
   requestSignUpVerificationMock: vi.fn(),
   registerMock: vi.fn(),
-  signInMock: vi.fn(),
+  signInMock: vi.fn(async (): Promise<unknown> => undefined),
   replaceMock: vi.fn(),
+  hardNavigateMock: vi.fn(),
   sessionRef: { current: { data: null as unknown } },
   searchParamsRef: { current: new URLSearchParams("") },
   publicEnvRef: {
@@ -76,7 +79,7 @@ vi.mock("../../../behavior/auth-client.tsx", async (importOriginal) => {
 
 vi.mock("../../../behavior/browser-navigation.ts", () => ({
   replaceLocation: replaceMock,
-  hardNavigate: vi.fn(),
+  hardNavigate: hardNavigateMock,
   reloadPage: vi.fn(),
 }));
 
@@ -350,6 +353,77 @@ describe("given the identifier-first sign-in screen", () => {
       expect(routeMock).toHaveBeenCalledTimes(2);
       expect(routeMock).toHaveBeenLastCalledWith({ identifier: "sam@acme.com", breakGlass: false });
       expect(signInMock).toHaveBeenCalledTimes(1);
+    });
+
+    /** @scenario "A refused hand-off to the identity provider says so instead of waiting" */
+    it("stops the spinner and says so when the provider sign-in is refused", async () => {
+      signInMock.mockResolvedValueOnce({
+        ok: false,
+        error: "Untrusted OIDC discovery URL",
+        code: "discovery_untrusted_origin",
+        status: 400,
+      });
+      routeMock.mockResolvedValueOnce(localPicker).mockResolvedValueOnce({
+        outcome: "redirect_to_connection",
+        connectionId: "org:acme",
+        methodSet: [oktaMethod],
+        reasonCode: "domain_routed",
+      } satisfies RoutingDecision);
+
+      renderScreen();
+      await enterEmail("sam@acme.com");
+
+      const refused = await screen.findByTestId("routed-to-connection-refused");
+      expect(refused).toHaveTextContent(/ask your administrator/i);
+      expect(refused).not.toHaveTextContent(/untrusted/i);
+      expect(screen.getByTestId("routed-to-connection")).toHaveTextContent(
+        /^Log in with .+ to continue\.$/,
+      );
+    });
+
+    /** @scenario "A refused hand-off to the identity provider says so instead of waiting" */
+    it("stops the spinner and says so when the hand-off fails on the network", async () => {
+      signInMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      routeMock.mockResolvedValueOnce(localPicker).mockResolvedValueOnce({
+        outcome: "redirect_to_connection",
+        connectionId: "org:acme",
+        methodSet: [oktaMethod],
+        reasonCode: "domain_routed",
+      } satisfies RoutingDecision);
+
+      renderScreen();
+      await enterEmail("sam@acme.com");
+
+      expect(await screen.findByTestId("routed-to-connection-refused")).toHaveTextContent(
+        /ask your administrator/i,
+      );
+      expect(screen.getByTestId("routed-to-connection")).toHaveTextContent(
+        /^Log in with .+ to continue\.$/,
+      );
+    });
+
+    /** @scenario "Retrying the hand-off clears the refusal" */
+    it("clears the refusal while the person retries from the button", async () => {
+      signInMock
+        .mockResolvedValueOnce({ ok: false, code: "discovery_untrusted_origin", status: 400 })
+        .mockReturnValueOnce(new Promise(() => undefined));
+      routeMock.mockResolvedValueOnce(localPicker).mockResolvedValueOnce({
+        outcome: "redirect_to_connection",
+        connectionId: "org:acme",
+        methodSet: [oktaMethod],
+        reasonCode: "domain_routed",
+      } satisfies RoutingDecision);
+
+      renderScreen();
+      await enterEmail("sam@acme.com");
+      await screen.findByTestId("routed-to-connection-refused");
+      await userEvent.click(screen.getByRole("button", { name: /continue with okta/i }));
+
+      await waitFor(() =>
+        expect(screen.queryByTestId("routed-to-connection-refused")).not.toBeInTheDocument(),
+      );
+      expect(signInMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("routed-to-connection")).toHaveTextContent(/^Taking you to/);
     });
 
     /** @scenario "A provider my address was routed to is badged once it lets me in" */
@@ -632,6 +706,34 @@ describe("given the identifier-first sign-in screen", () => {
     });
   });
 
+  describe("when the password is right but must be replaced first", () => {
+    /** @scenario "The sign-in form sends a marked user to choose a new password" */
+    it("sends the person to choose a new password, carrying the address, with no error", async () => {
+      routeMock.mockResolvedValue(localPicker);
+      signInMock.mockResolvedValue({
+        error: "identity_password_reset_required",
+        code: "identity_password_reset_required",
+        status: 403,
+      });
+
+      const { container } = renderScreen();
+      await enterEmail("sam@example.com");
+      await screen.findByTestId("method-picker");
+
+      await userEvent.type(container.querySelector('input[type="password"]')!, "the-old-password");
+      await userEvent.click(screen.getByRole("button", { name: /^log in$/i }));
+
+      await waitFor(() => expect(hardNavigateMock).toHaveBeenCalledTimes(1));
+      const target = new URL(String(hardNavigateMock.mock.calls[0]?.[0]), "https://app.test");
+      expect(target.pathname).toBe("/auth/forgot-password");
+      expect(target.search).toBe("");
+      const fragment = new URLSearchParams(target.hash.slice(1));
+      expect(fragment.get("email")).toBe("sam@example.com");
+      expect(fragment.get("reset")).toBe("required");
+      expect(screen.queryByTestId("signin-failure")).toBeNull();
+    });
+  });
+
   describe("when the installation has stopped accepting attempts", () => {
     /** @scenario A rate-limited log-in says how long, and stops asking */
     it("says how long is actually left and disables the submit", async () => {
@@ -893,6 +995,27 @@ describe("given the identifier-first sign-in screen", () => {
       expect(registerMock).not.toHaveBeenCalled();
       expect(await screen.findByTestId("verification-sent")).toHaveTextContent(
         "nobody@example.com",
+      );
+    });
+
+    /** @scenario "The log-in door's confirmation link carries the invitation" */
+    it("sends the invitation the log-in was going to along with the link", async () => {
+      searchParamsRef.current = new URLSearchParams(
+        "callbackUrl=%2Finvite%2Faccept%3FinviteCode%3Dabc",
+      );
+      routeMock.mockResolvedValue(unknownIdentifier);
+      requestSignUpVerificationMock.mockResolvedValue({ sent: true });
+
+      renderScreen();
+      await enterEmail("nobody@example.com");
+      await screen.findByTestId("unknown-identifier");
+      await userEvent.click(screen.getByRole("button", { name: /send confirmation link/i }));
+
+      await waitFor(() =>
+        expect(requestSignUpVerificationMock).toHaveBeenCalledWith({
+          email: "nobody@example.com",
+          callbackUrl: "/invite/accept?inviteCode=abc",
+        }),
       );
     });
 

@@ -126,7 +126,7 @@ Public: the provider signs every delivery and the signature is verified over the
 Answers at `/api/webhooks/stripe`, `/api/v1/webhooks/stripe`.
 
 ```typescript
-// Rawbody: "bytes" (inline, src/transport/billing-stripe-webhook.rest.ts:41)
+// Rawbody: "bytes" (inline, src/transport/billing-stripe-webhook.rest.ts:42)
 type Headers = z.infer<typeof billingStripeWebhookHeadersSchema>; // ../contract/src/billing-types.ts:250
 // Response: billingStripeWebhookReceiptSchema, ../contract/src/billing-types.ts:241
 interface Response {
@@ -206,7 +206,7 @@ type Output = z.infer<typeof connectedInvoiceTargetSchema>; // ../contract/src/c
 
 ### `currency`
 
-Contract `../contract/src/currency.trpc.ts:22`, router `src/transport/currency.trpc.ts:46`.
+Contract `../contract/src/currency.trpc.ts:22`, router `src/transport/currency.trpc.ts:47`.
 
 | Procedure                 | Kind  | Gate                                                                                                                                     | Input                       | Output                   |
 | ------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------ |
@@ -227,15 +227,15 @@ interface Output {
 
 Contract `../contract/src/subscription.trpc.ts:34`, router `src/transport/subscription.trpc.ts:88`.
 
-| Procedure                            | Kind     | Gate                             | Input                     | Output                           |
-| ------------------------------------ | -------- | -------------------------------- | ------------------------- | -------------------------------- |
-| `subscription.addTeamMemberOrEvents` | mutation | Permission `organization:manage` | inline                    | `subscriptionItemsUpdatedSchema` |
-| `subscription.create`                | mutation | Permission `organization:manage` | inline                    | `billingRedirectSchema`          |
-| `subscription.manage`                | mutation | Permission `organization:manage` | inline                    | `billingPortalSessionSchema`     |
-| `subscription.previewProration`      | query    | Permission `organization:manage` | inline                    | `providerOwnedSchema`            |
-| `subscription.getLastSubscription`   | query    | Permission `organization:view`   | `organizationScopeSchema` | `providerOwnedSchema`            |
-| `subscription.prospective`           | mutation | Permission `organization:manage` | inline                    | `providerOwnedSchema`            |
-| `subscription.listInvoices`          | query    | Permission `organization:view`   | `organizationScopeSchema` | inline                           |
+| Procedure                            | Kind     | Gate                              | Input                     | Output                           |
+| ------------------------------------ | -------- | --------------------------------- | ------------------------- | -------------------------------- |
+| `subscription.addTeamMemberOrEvents` | mutation | Permission `organization:manage`  | inline                    | `subscriptionItemsUpdatedSchema` |
+| `subscription.create`                | mutation | Permission `subscription:upgrade` | inline                    | `billingRedirectSchema`          |
+| `subscription.manage`                | mutation | Permission `organization:manage`  | inline                    | `billingPortalSessionSchema`     |
+| `subscription.previewProration`      | query    | Permission `organization:manage`  | inline                    | `providerOwnedSchema`            |
+| `subscription.getLastSubscription`   | query    | Permission `organization:view`    | `organizationScopeSchema` | `providerOwnedSchema`            |
+| `subscription.prospective`           | mutation | Permission `organization:manage`  | inline                    | `providerOwnedSchema`            |
+| `subscription.listInvoices`          | query    | Permission `organization:view`    | `organizationScopeSchema` | inline                           |
 
 ```typescript
 // subscription.addTeamMemberOrEvents
@@ -357,12 +357,12 @@ Run by the tasks process, before serve.
 
 | Kind   | Leaf                                | Environment variable                           | Declared at                            |
 | ------ | ----------------------------------- | ---------------------------------------------- | -------------------------------------- |
-| secret | `stripeSecretKey`                   | `STRIPE_SECRET_KEY`                            | `src/app/billing.app.ts:174`           |
-| secret | `stripeWebhookSecret`               | `STRIPE_WEBHOOK_SECRET`                        | `src/app/billing.app.ts:175`           |
-| secret | `internalSlackPlanLimitWebhook`     | `SLACK_PLAN_LIMIT_CHANNEL`                     | `src/app/billing.app.ts:176`           |
-| secret | `internalSlackSubscriptionsWebhook` | `SLACK_CHANNEL_SUBSCRIPTIONS`                  | `src/app/billing.app.ts:177`           |
-| secret | `internalSlackSelfHostedWebhook`    | `SLACK_CHANNEL_SELF_HOSTED`                    | `src/app/billing.app.ts:178`           |
-| secret | `internalSlackSignupsWebhook`       | ≈ `billingSecrets.internalSlackSignupsWebhook` | `src/app/billing.app.ts:179`           |
+| secret | `stripeSecretKey`                   | `STRIPE_SECRET_KEY`                            | `src/app/billing.app.ts:184`           |
+| secret | `stripeWebhookSecret`               | `STRIPE_WEBHOOK_SECRET`                        | `src/app/billing.app.ts:185`           |
+| secret | `internalSlackPlanLimitWebhook`     | `SLACK_PLAN_LIMIT_CHANNEL`                     | `src/app/billing.app.ts:186`           |
+| secret | `internalSlackSubscriptionsWebhook` | `SLACK_CHANNEL_SUBSCRIPTIONS`                  | `src/app/billing.app.ts:187`           |
+| secret | `internalSlackSelfHostedWebhook`    | `SLACK_CHANNEL_SELF_HOSTED`                    | `src/app/billing.app.ts:188`           |
+| secret | `internalSlackSignupsWebhook`       | ≈ `billingSecrets.internalSlackSignupsWebhook` | `src/app/billing.app.ts:189`           |
 | config | `licensePaymentLinkId`              | `STRIPE_LICENSE_PAYMENT_LINK_ID`               | `../contract/src/billing.config.ts:13` |
 | config | `licensePaymentUrl`                 | `STRIPE_LICENSE_PAYMENT_LINK_URL`              | `../contract/src/billing.config.ts:15` |
 | config | `hubspotPortalId`                   | `HUBSPOT_PORTAL_ID`                            | `../contract/src/billing.config.ts:23` |

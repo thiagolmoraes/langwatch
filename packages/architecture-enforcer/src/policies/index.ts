@@ -19,6 +19,8 @@ import {
 } from "./frontend/browser-packages.ts";
 import { lintClickhouseTableOwnership } from "./persistence/clickhouse-table-ownership.ts";
 import { lintEventingTableAccess } from "./persistence/eventing-table-access.ts";
+import { lintIdIndexBounds } from "./persistence/id-index-bounds.ts";
+import { lintIdIndexPairing } from "./persistence/id-index-pairing.ts";
 import { lintMemoryTwinDrift } from "./persistence/memory-twin-drift.ts";
 import { lintMigrationOwners } from "./persistence/migration-owners.ts";
 import { lintPrismaMigrationAccess } from "./persistence/prisma-migration-access.ts";
@@ -37,6 +39,7 @@ import {
   lintDeletedSpellingsInTeaching,
 } from "./quality/deleted-spellings.ts";
 import { lintDependencyCatalog } from "./quality/dependency-catalog.ts";
+import { lintRuntimeDependencies } from "./quality/runtime-dependencies.ts";
 import { lintServiceCeilings } from "./quality/service-ceilings.ts";
 import { lintServiceProjectionBoundaries } from "./quality/service-projection-boundaries.ts";
 import { lintLintRuleSkillPointers, lintTeachingCitations } from "./quality/teaching-citations.ts";
@@ -220,6 +223,16 @@ export const POLICIES: readonly PolicyDefinition[] = [
     run: lintEventingTableAccess,
   }),
   definePolicy({
+    id: "id-index-pairing",
+    spec: "specs/tooling/lint-id-index-policies.feature",
+    run: lintIdIndexPairing,
+  }),
+  definePolicy({
+    id: "id-index-bounds",
+    spec: "specs/tooling/lint-id-index-policies.feature",
+    run: lintIdIndexBounds,
+  }),
+  definePolicy({
     id: "declarations",
     spec: FEATURE_PACKAGE_BOUNDARIES,
     run: lintDeclarations,
@@ -228,6 +241,11 @@ export const POLICIES: readonly PolicyDefinition[] = [
     id: "dependency-catalog",
     spec: "specs/dependency-catalog.feature",
     run: lintDependencyCatalog,
+  }),
+  definePolicy({
+    id: "runtime-dependencies",
+    spec: "specs/tooling/lint-runtime-dependencies.feature",
+    run: lintRuntimeDependencies,
   }),
   definePolicy({
     id: "workspace-seams",

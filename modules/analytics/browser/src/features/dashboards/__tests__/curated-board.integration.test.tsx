@@ -69,6 +69,14 @@ describe("given a member opens a From LangWatch board", () => {
     expect(server.calls.filter(({ path }) => WRITES.test(path))).toEqual([]);
   });
 
+  /** @scenario "AC3i The Dashboards pages do not point back to the old Analytics" */
+  it("does not point back to the old Analytics", async () => {
+    openCurated("release");
+
+    await screen.findByRole("heading", { name: "Release check" });
+    expect(screen.queryByText(/Looking for the old Analytics/)).toBeNull();
+  });
+
   describe("when the board is Can I trust my numbers?", () => {
     /** @scenario "From LangWatch: every widget on a template board has code" */
     it("shows its four widgets and no placeholder", async () => {

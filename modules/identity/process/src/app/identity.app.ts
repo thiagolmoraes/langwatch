@@ -48,7 +48,7 @@ import { NotificationService } from "@langwatch/notification-contract";
  * capability crossing a package boundary today (ADR-101, 115, 116, 117).
  */
 import { createLogger } from "@langwatch/observability";
-import { OrganizationApi } from "@langwatch/organization-contract";
+import { OrganizationApi, organizationApiMemberRoleSchema } from "@langwatch/organization-contract";
 import type { FeatureSetup } from "@langwatch/process";
 import { internalSlackSignupsWebhook } from "@langwatch/secrets";
 import type { SystemMigration } from "@langwatch/system-migrations";
@@ -269,6 +269,8 @@ type IdentityPipelineBuilders = {
 function arrivalMemberships(organizations: OrganizationApi): SsoArrivalMemberships {
   return {
     isMember: (args) => organizations.isMember(args),
+    getMemberSeat: async (args) =>
+      organizationApiMemberRoleSchema.parse((await organizations.getMember(args)).role),
     createMembership: (args) => organizations.createMembership(args),
     applyPendingInvite: (args) => organizations.applyPendingInvite(args),
     /** Absent for an organization deleted between the decision and the join,
@@ -625,11 +627,12 @@ export class IdentityModule
     const dialableIdpOrigins = () => setup.channels.authReads.findDialableIdentityProviderOrigins();
     // The same fence the published-proof reads go through: an issuer is a
     // string an administrator typed.
-    const issuerDiscovery = setup.channels.ssoIssuerDiscovery;
+    const issuerDiscovery = setup.channels.ssoRegistrationIssuerDiscovery;
     const ssoIssuers = SsoIssuerDirectoryService.create({
       connections: setup.repositories.ssoConnections,
       endpointOrigins: SsoIssuerEndpointOriginsService.create({
-        discovery: issuerDiscovery,
+        // Read at every sign-in, so on the route the engine's own sign-in fetches take.
+        discovery: setup.channels.ssoSignInIssuerDiscovery,
         resolveHost: systemHostAddresses,
         dialableInternalOrigins: dialableIdpOrigins,
       }),
