@@ -49,6 +49,9 @@ services:
 
   workers:
     image: langwatch/langwatch:hml
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
     command: ["pnpm", "run", "start:workers"]
     working_dir: /app/platform/app
     environment:
