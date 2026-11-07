@@ -8,6 +8,7 @@ services:
     # The Next.js build peaks near 9GB (RAM + swap). The host keeps an 8GB
     # swapfile for it.
     image: langwatch/langwatch:hml
+    pull_policy: never
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
@@ -49,6 +50,7 @@ services:
 
   workers:
     image: langwatch/langwatch:hml
+    pull_policy: never
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
