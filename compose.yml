@@ -1,18 +1,14 @@
 services:
+  # app — upstream v3.28.0 merged the api and worker into one process,
+  # run from /app/apps/backend (ADR-168). START_WORKERS=true selects that
+  # combined entrypoint in the image's start.sh; there is no worker-only
+  # mode, so the separate `workers` service from the old fork is gone.
   app:
     restart: unless-stopped
-    # Local-only tag. Komodo builds it from this checkout on every deploy,
-    # and workers run the same tag. "latest" collides with the upstream
-    # Docker Hub image, and pull_policy: always was replacing the fork
-    # build with the Hub image on every deploy.
-    # The Next.js build peaks near 9GB (RAM + swap). The host keeps an 8GB
-    # swapfile for it.
-    image: langwatch/langwatch:hml
-    pull_policy: never
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile
+    image: langwatch/langwatch:3.28.0
+    pull_policy: always
     environment:
+      START_WORKERS: "true"
       SKIP_ENV_VALIDATION: true
       DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
       CLICKHOUSE_URL: http://default:langwatch@clickhouse:8123/langwatch
@@ -48,47 +44,6 @@ services:
       clickhouse:
         condition: service_healthy
 
-  workers:
-    image: langwatch/langwatch:hml
-    pull_policy: never
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile
-    command: ["pnpm", "run", "start:workers"]
-    working_dir: /app/platform/app
-    environment:
-      SKIP_ENV_VALIDATION: true
-      DATABASE_URL: postgresql://prisma:prisma@postgres:5432/mydb?schema=mydb
-      CLICKHOUSE_URL: http://default:langwatch@clickhouse:8123/langwatch
-      # This compose stack runs a plain ClickHouse with no backups, so
-      # system.backup_log does not exist here. Backup-status collection is on by
-      # default (an unset flag must not disarm the alerts that read those gauges
-      # in deployments that do have backups), so opt out explicitly rather than
-      # failing the query on every stats tick.
-      CLICKHOUSE_BACKUP_METRICS_ENABLED: "false"
-      REDIS_URL: redis://redis:6379
-      LANGWATCH_NLP_SERVICE: http://langwatch_nlp:5561
-      LANGEVALS_ENDPOINT: http://langevals:5562
-      LANGWATCH_ENDPOINT: http://app:5560
-      NODE_ENV: production
-      # Same local-filesystem fallback as `app` — workers also read/write
-      # dataset chunks (e.g. the PG->S3 backfill task), must share the
-      # same root or a job started on one container can't see files the
-      # other wrote.
-      LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
-    env_file:
-      - platform/app/.env
-    volumes:
-      - langwatch-objects:/var/lib/langwatch/objects
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      clickhouse:
-        condition: service_healthy
-    restart: always
-
   # nlpgo — the Go NLP engine. langwatch/langwatch_nlp is now a static Go
   # binary (Dockerfile.langwatch_nlp); it still binds :5561 and reads
   # LANGWATCH_ENDPOINT for evaluator + agent-workflow callbacks.
@@ -112,8 +67,7 @@ services:
     environment:
       - DISABLE_EVALUATORS_PRELOAD=true
 
-  # gateway — the AI Gateway (Go binary, services/aigateway). No published
-  # image on this branch yet, built from source via Dockerfile.go_service.
+  # gateway — the AI Gateway (Go binary, services/aigateway), official image.
   # ENVIRONMENT=local matches how real production runs today: the
   # ModelProvider points at llama-swap over plain HTTP, so the hosted-only
   # SSRF checks (BLOCK_LOCAL_HTTP_CALLS, REQUIRE_HTTPS_CUSTOM_ENDPOINTS)
@@ -121,9 +75,8 @@ services:
   # (see services/aigateway/config.go validateHostedEgressSecurity), so
   # they're dropped here instead of left as dead/confusing "true" values.
   gateway:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.go_service
+    image: langwatch/ai-gateway:3.28.0
+    pull_policy: always
     ports:
       - "5563:5563"
     environment:
