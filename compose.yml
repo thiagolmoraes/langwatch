@@ -30,8 +30,22 @@ services:
       # Path must be a persistent volume, else a restart loses data the
       # DB still points to.
       LANGWATCH_LOCAL_STORAGE_PATH: /var/lib/langwatch/objects
+      # Ops pages (/ops, including /ops/feature-flags where Langy's
+      # release_langy_enabled flag lives) are gated on this list.
+      ADMIN_EMAILS: thiago.lmoraes@telefonica.com,pietro.farina@telefonica.com,bernardo.soliveira@telefonica.com,ruan.moreira@telefonica.com
+      # Turns on the Langy backend; the agent is a plain Go service
+      # (langyagent container below), not Kubernetes-specific despite
+      # the upstream docs only showing a Helm deployment for it. Port
+      # 8080 confirmed from the binary's own startup log, not guessed
+      # from the chart's Service port (which fronts a different port).
+      LANGY_AGENT_URL: http://langyagent:8080
     env_file:
       - platform/app/.env
+      # Isolated on purpose: langyagent spawns LLM-driven shell workers
+      # and this compose has no NetworkPolicy like the Helm chart does,
+      # so this file carries only LANGY_INTERNAL_SECRET — never the
+      # app's DB/Redis/ClickHouse credentials from platform/app/.env.
+      - platform/langy.env
     ports:
       - "5560:5560"
     volumes:
@@ -43,6 +57,22 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+
+  # langyagent — Langy, the in-product AI assistant. Upstream only
+  # documents a Helm/Kubernetes deployment (separate pod, gVisor sandbox
+  # option, NetworkPolicy), but the image itself is a plain Go binary
+  # with no Kubernetes dependency; it runs fine as a normal container
+  # here. No sandboxing or GitHub App configured yet — Langy can answer
+  # questions about traces, but can't open pull requests until
+  # GITHUB_LANGY_* is set on `app`.
+  langyagent:
+    image: langwatch/langyagent:3.28.0
+    pull_policy: always
+    restart: always
+    env_file:
+      - platform/langy.env
+    environment:
+      ENVIRONMENT: production
 
   # nlpgo — the Go NLP engine. langwatch/langwatch_nlp is now a static Go
   # binary (Dockerfile.langwatch_nlp); it still binds :5561 and reads
